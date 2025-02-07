@@ -16,6 +16,8 @@
 #endif
 
 #define HASH_NIL 0
+#define NODE_COLOR_BLACK 0;
+#define NODE_COLOR_RED 1;
 
 #define NODE_NIL                                                               \
   {                                                                            \
@@ -32,6 +34,7 @@
       struct node *parent;                                                     \
       uint64_t hash;                                                           \
       entry_type entry;                                                        \
+      uint8_t color;                                                           \
     } *root;                                                                   \
     uint64_t (*hash_fn)(entry_type);                                           \
   }
@@ -152,6 +155,48 @@
         .left = &new_leaves[0],                                                \
         .right = &new_leaves[1],                                               \
     };                                                                         \
+                                                                               \
+    set_rb_insert_fixup(set, leaf);                                            \
+  } while (0);
+
+#define set_rb_insert_fixup_dir(set, node, f_branch, f_direction)              \
+  do {                                                                         \
+    typeof(node) uncle = node->parent->parent->f_branch;                       \
+    if (uncle->color == NODE_COLOR_RED) {                                      \
+      node->parent->color = NODE_COLOR_BLACK;                                  \
+      uncle->color = NODE_COLOR_BLACK;                                         \
+      node->parent->parent->color = NODE_COLOR_BLACK;                          \
+    } else {                                                                   \
+      if (node == node->parent->f_branch) {                                    \
+        node = node->parent;                                                   \
+        set_rot(set, node, f_branch, f_direction);                             \
+      }                                                                        \
+      node->parent->color = NODE_COLOR_BLACK;                                  \
+      node->parent->parent->color = NODE_COLOR_RED;                            \
+      set_rot(set, node->parent, f_direction, f_branch);                       \
+    }                                                                          \
+  } while (0);
+
+#define set_rb_insert_fixup_left(set, node)                                    \
+  set_rb_insert_fixup_dir(set, node, right, left)
+#define set_rb_insert_fixup_right(set, node)                                   \
+  set_rb_insert_fixup_dir(set, node, left, right)
+
+#define set_rb_insert_fixup(set, node)                                         \
+  do {                                                                         \
+    typeof(node) n = node;                                                     \
+    while (n->parent->color == NODE_COLOR_RED) {                               \
+      if (n->parent == n->parent->parent->left) {                              \
+        set_rb_insert_fixup_left(set, n);                                      \
+      } else {                                                                 \
+        set_rb_insert_fixup_right(set, n);                                     \
+      }                                                                        \
+    }                                                                          \
+    set.root->color = NODE_COLOR_RED;                                          \
+  } while (0);
+
+#define set_rb_insert(set, node)                                               \
+  do {                                                                         \
   } while (0);
 
 #define set_remove(set, entry)                                                 \
@@ -222,6 +267,29 @@
     typeof(set.root) *node = find_node(set.root, key);                         \
     node->hash == key;                                                         \
   })
+
+#define set_rot(set, node, f_branch, f_direction)                              \
+  do {                                                                         \
+    typeof(node) f_branch = node->f_branch;                                    \
+    assert(f_branch->hash != HASH_NIL);                                        \
+    node->f_branch = f_branch->f_direction;                                    \
+    if (f_branch->f_direction->hash != HASH_NIL) {                             \
+      f_branch->f_direction->parent = node;                                    \
+    }                                                                          \
+    f_branch->parent = node->parent;                                           \
+    if (node->parent == NULL) {                                                \
+      set.root = f_branch;                                                     \
+    } else if (node->hash == node->parent->f_direction->hash) {                \
+      node->parent->f_direction = f_branch;                                    \
+    } else {                                                                   \
+      node->parent->f_branch = f_branch;                                       \
+    }                                                                          \
+    f_branch->f_direction = node;                                              \
+    node->parent = f_branch;                                                   \
+  } while (0);
+
+#define set_rot_left(set, node) set_rot(set, node, right, left)
+#define set_rot_right(set, node) set_rot(set, node, left, right)
 
 inline uint64_t set_uint32_hash_fn(uint32_t entry) {
   entry = ((entry >> 16) ^ entry) * 0x45d9f3b;
