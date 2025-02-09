@@ -333,9 +333,10 @@
   ({                                                                           \
     typeof(set.buf) node = set_first(set);                                     \
     size_t size = 0;                                                           \
-    do {                                                                       \
+    while (node != NULL) {                                                     \
       size++;                                                                  \
-    } while ((node = set_next(set, node)));                                    \
+      node = set_next(set, node);                                              \
+    }                                                                          \
     size;                                                                      \
   })
 
