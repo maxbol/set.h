@@ -204,7 +204,6 @@
     n_idx;                                                                     \
   })
 
-// TODO(2025-02-03, Max Bolotin): Replace malloc with custom allocator
 #define set_add(set, entry_var)                                                \
   do {                                                                         \
     uint64_t hash = set.hash_fn(entry_var);                                    \
