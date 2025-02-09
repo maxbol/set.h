@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define HASH_NIL 0
 #define IDX_NIL 0
@@ -109,12 +110,12 @@
   })
 
 #define set_free_node(set, addr)                                               \
-  ({                                                                           \
+  do {                                                                         \
     size_t free_list_byte_idx = floor(addr / 8);                               \
     size_t free_list_bit_idx = addr % 8;                                       \
     uint8_t bmask = 1 << (7 - free_list_bit_idx);                              \
     set.free_list[free_list_byte_idx] ^= bmask;                                \
-  })
+  } while (0)
 
 #define set_free(set)                                                          \
   do {                                                                         \
