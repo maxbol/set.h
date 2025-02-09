@@ -1,3 +1,6 @@
 [submodule "rapidhash"]
 	path = rapidhash
 	url = git@github.com:Nicoshev/rapidhash.git
+[submodule "Unity"]
+	path = Unity
+	url = git@github.com:ThrowTheSwitch/Unity

@@ -1,0 +1,56 @@
+[
+  {
+    "arguments": [
+      "/nix/store/bd2lcra6js8pvki2ndzgbgdp9hc2i4x2-clang-wrapper-16.0.6/bin/clang",
+      "-c",
+      "-g",
+      "-I.",
+      "-I./Unity/src",
+      "-I./Unity/extras/fixture/src",
+      "-Wall",
+      "-Werror",
+      "-o",
+      "out/test/test_inserts",
+      "./Unity/src/unity.c"
+    ],
+    "directory": "/Users/maxbolotin/Source/set.h",
+    "file": "/Users/maxbolotin/Source/set.h/Unity/src/unity.c",
+    "output": "/Users/maxbolotin/Source/set.h/out/test/test_inserts"
+  },
+  {
+    "arguments": [
+      "/nix/store/bd2lcra6js8pvki2ndzgbgdp9hc2i4x2-clang-wrapper-16.0.6/bin/clang",
+      "-c",
+      "-g",
+      "-I.",
+      "-I./Unity/src",
+      "-I./Unity/extras/fixture/src",
+      "-Wall",
+      "-Werror",
+      "-o",
+      "out/test/test_inserts",
+      "tests/inserts.c"
+    ],
+    "directory": "/Users/maxbolotin/Source/set.h",
+    "file": "/Users/maxbolotin/Source/set.h/tests/inserts.c",
+    "output": "/Users/maxbolotin/Source/set.h/out/test/test_inserts"
+  },
+  {
+    "arguments": [
+      "/nix/store/bd2lcra6js8pvki2ndzgbgdp9hc2i4x2-clang-wrapper-16.0.6/bin/clang",
+      "-c",
+      "-g",
+      "-I.",
+      "-I./Unity/src",
+      "-I./Unity/extras/fixture/src",
+      "-Wall",
+      "-Werror",
+      "-o",
+      "out/test/test_inserts",
+      "test_runners/inserts.c"
+    ],
+    "directory": "/Users/maxbolotin/Source/set.h",
+    "file": "/Users/maxbolotin/Source/set.h/test_runners/inserts.c",
+    "output": "/Users/maxbolotin/Source/set.h/out/test/test_inserts"
+  }
+]
