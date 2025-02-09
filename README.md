@@ -6,6 +6,7 @@ Generic ordered set implementation using C.
 * Auto-balancing tree structure (Red & Black tree)
 * Cache-efficient memory layout (entries kept in one single, expanding buffer)
 * Bring your own hashing function 
+* Small (~ 400 LOC)
 
 ## Why?
 

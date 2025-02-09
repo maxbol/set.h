@@ -129,18 +129,6 @@
     free(set.buf);                                                             \
   } while (0)
 
-// #define set_free(set)                                                          \
-//   do {                                                                         \
-//     typeof(set.root) node = set_first(set);                                    \
-//     typeof(set.root) next;                                                     \
-//     do {                                                                       \
-//       next = set_next(node);                                                   \
-//       printf("Freeing node with value %d and hash %lld\n", node->entry,        \
-//              node->hash);                                                      \
-//       free(node);                                                              \
-//     } while ((node = next));                                                   \
-//   } while (0);
-
 #define set_seq_in_branch(set, node, f_branch, f_direction)                    \
   ({                                                                           \
     typeof(node) retval = NULL;                                                \
@@ -390,15 +378,5 @@
 
 #define set_rot_left(set, node_idx) set_rot(set, node_idx, right, left)
 #define set_rot_right(set, node_idx) set_rot(set, node_idx, left, right)
-
-// Add 1 to entry to avoid overlapping with HASH_NIL
-// uint64_t set_uint32_hash_fn(uint32_t entry) { return entry + 1; }
-// uint64_t set_uint64_hash_fn(uint64_t entry) { return entry + 1; }
-//
-// #if !GENERIC_SET_NO_RAPIDHASH
-// uint64_t set_string_hash_fn(const char *entry) {
-//   return rapidhash(entry, strlen(entry));
-// }
-// #endif
 
 #endif // !GENERIC_SET_H
