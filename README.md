@@ -1,6 +1,11 @@
 # set.h
 
-Generic, header-only, bring-your-own-hashing-function ordered set implementation using C.
+Generic ordered set implementation using C.
+
+* Single header implementation using macros
+* Auto-balancing tree structure (Red & Black tree)
+* Cache-efficient memory layout (entries kept in one single, expanding buffer)
+* Bring your own hashing function 
 
 ## Why?
 
