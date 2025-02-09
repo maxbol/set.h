@@ -1,20 +1,12 @@
 #ifndef GENERIC_SET_H
 #define GENERIC_SET_H
 
-#ifndef GENERIC_SET_NO_RAPIDHASH
-#define GENERIC_SET_NO_RAPIDHASH false
-#endif
-
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#if !GENERIC_SET_NO_RAPIDHASH
-#include "rapidhash/rapidhash.h"
-#endif
 
 #define HASH_NIL 0
 #define IDX_NIL 0
