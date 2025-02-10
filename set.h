@@ -21,26 +21,28 @@
       .right = IDX_NIL,                                                        \
   };
 
+typedef struct {
+  size_t left;
+  size_t right;
+  size_t parent;
+  uint64_t hash;
+} set_node;
+
 #define set_type(entry_type)                                                   \
   struct {                                                                     \
-    struct node {                                                              \
-      size_t left;                                                             \
-      size_t right;                                                            \
-      size_t parent;                                                           \
-      uint64_t hash;                                                           \
-      entry_type entry;                                                        \
-      uint8_t color;                                                           \
-    } *buf;                                                                    \
+    set_node *nodes;                                                           \
+    entry_type *entries;                                                       \
+    uint8_t *colors;                                                           \
+    uint8_t *free_list;                                                        \
     size_t root;                                                               \
     size_t capacity;                                                           \
     uint64_t (*hash_fn)(entry_type);                                           \
-    uint8_t *free_list;                                                        \
   }
 
 #define SET_ALLOC_CHUNK 512
 
 #define BIT_HEADER_ADDR ((size_t)1 << 63)
-#define BIT_HEADER_IDX ((size_t)0xffffffffffffffff >> 1)
+#define BIT_HEADER_IDX (~BIT_HEADER_ADDR)
 
 #define set_addr(idx) ((size_t)idx | BIT_HEADER_ADDR)
 #define set_idx(addr) ((size_t)addr & BIT_HEADER_IDX)
@@ -48,11 +50,11 @@
 #define set_get_node(set, addr)                                                \
   ({                                                                           \
     size_t a = (addr);                                                         \
-    typeof(set.buf) retval = NULL;                                             \
+    typeof(set.nodes) retval = NULL;                                           \
     if ((a & BIT_HEADER_ADDR) != 0) {                                          \
       size_t idx = set_idx(a);                                                 \
       assert(set.capacity > idx);                                              \
-      retval = &set.buf[idx];                                                  \
+      retval = &set.nodes[idx];                                                \
     }                                                                          \
     retval;                                                                    \
   })
@@ -70,12 +72,37 @@
 
 #define set_get_root(set) set_get_node(set, set.root)
 
+#define set_read_color(set, addr)                                              \
+  ({                                                                           \
+    size_t idx = set_idx(addr);                                                \
+    size_t byte_idx = floor((float)idx / 8);                                   \
+    size_t bit_idx = idx % 8;                                                  \
+    uint8_t mask = 1 << (7 - bit_idx);                                         \
+    (set.colors[byte_idx] & mask) != 0 ? NODE_COLOR_RED : NODE_COLOR_BLACK;    \
+  })
+
+#define set_write_color(set, addr, color)                                      \
+  ({                                                                           \
+    size_t idx = set_idx(addr);                                                \
+    size_t byte_idx = floor((float)idx / 8);                                   \
+    size_t bit_idx = idx % 8;                                                  \
+    uint8_t mask = 1 << (7 - bit_idx);                                         \
+    if (color == NODE_COLOR_RED) {                                             \
+      set.colors[byte_idx] |= mask;                                            \
+    } else {                                                                   \
+      set.colors[byte_idx] &= ~mask;                                           \
+    }                                                                          \
+  })
+
 #define set_init(set, hash_function)                                           \
   do {                                                                         \
     set.capacity = SET_ALLOC_CHUNK;                                            \
-    set.buf = malloc(sizeof(typeof(*set.buf)) * set.capacity);                 \
+    set.nodes = malloc(sizeof(typeof(*set.nodes)) * set.capacity);             \
+    set.entries = malloc(sizeof(typeof(*set.entries)) * set.capacity);         \
     set.free_list = malloc(set.capacity / 8);                                  \
+    set.colors = malloc(set.capacity / 8);                                     \
     memset(set.free_list, 0xff, set.capacity / 8);                             \
+    memset(set.colors, 0x00, set.capacity / 8);                                \
     set.root = set_alloc_new_node(set);                                        \
     set.hash_fn = hash_function;                                               \
   } while (0)
@@ -91,7 +118,7 @@
       if ((set.free_list[byte_idx] & bmask) != 0) {                            \
         found_free = true;                                                     \
         set.free_list[byte_idx] ^= bmask;                                      \
-        set.buf[i] = (typeof(*set.buf))NODE_NIL;                               \
+        set.nodes[i] = (typeof(*set.nodes))NODE_NIL;                           \
         retval = set_addr(i);                                                  \
         break;                                                                 \
       }                                                                        \
@@ -99,11 +126,17 @@
     if (!found_free) {                                                         \
       retval = set_addr(set.capacity);                                         \
       set.capacity *= 2;                                                       \
-      set.buf = realloc(set.buf, sizeof(typeof(*set.buf)) * set.capacity);     \
-      set.buf[retval] = (typeof(*set.buf))NODE_NIL;                            \
+      set.nodes =                                                              \
+          realloc(set.nodes, sizeof(typeof(*set.nodes)) * set.capacity);       \
+      set.entries =                                                            \
+          realloc(set.entries, sizeof(typeof(*set.entries)) * set.capacity);   \
       set.free_list = realloc(set.free_list, set.capacity / 8);                \
+      set.colors = realloc(set.colors, set.capacity / 8);                      \
       memset(&set.free_list[retval / 8], 0xff,                                 \
              (set.capacity / 8) - (retval / 8));                               \
+      memset(&set.colors[retval / 8], 0x00,                                    \
+             (set.capacity / 8) - (retval / 8));                               \
+      set.nodes[retval] = (typeof(*set.nodes))NODE_NIL;                        \
       set.free_list[retval] = 0xff >> 1;                                       \
     }                                                                          \
     retval;                                                                    \
@@ -119,7 +152,7 @@
 
 #define set_free(set)                                                          \
   do {                                                                         \
-    free(set.buf);                                                             \
+    free(set.nodes);                                                           \
   } while (0)
 
 #define set_seq_in_branch(set, node, f_branch, f_direction)                    \
@@ -172,10 +205,10 @@
 
 #define set_ult(set, f_branch, f_direction)                                    \
   ({                                                                           \
-    typeof(set.buf) node = set_get_root(set);                                  \
+    typeof(set.nodes) node = set_get_root(set);                                \
     if (node != NULL) {                                                        \
       while (true) {                                                           \
-        typeof(set.buf) next = set_seq(set, node, f_branch, f_direction);      \
+        typeof(set.nodes) next = set_seq(set, node, f_branch, f_direction);    \
         if (next == NULL) {                                                    \
           break;                                                               \
         }                                                                      \
@@ -192,7 +225,7 @@
   ({                                                                           \
     size_t n_idx = set.root;                                                   \
     while (set_get_node(set, n_idx)->hash != HASH_NIL) {                       \
-      typeof(set.buf) rv = set_get_node(set, n_idx);                           \
+      typeof(set.nodes) rv = set_get_node(set, n_idx);                         \
       if (key > rv->hash) {                                                    \
         n_idx = rv->right;                                                     \
       } else if (key < rv->hash) {                                             \
@@ -208,7 +241,7 @@
   do {                                                                         \
     uint64_t hash = set.hash_fn(entry_var);                                    \
     size_t leaf_idx = find_node(set, hash);                                    \
-    typeof(set.buf) leaf = set_get_node(set, leaf_idx);                        \
+    typeof(set.nodes) leaf = set_get_node(set, leaf_idx);                      \
                                                                                \
     if (leaf->hash != HASH_NIL) {                                              \
       break;                                                                   \
@@ -218,37 +251,54 @@
     size_t right_idx = set_alloc_new_node(set);                                \
     set_get_node(set, left_idx)->parent = leaf_idx;                            \
     set_get_node(set, right_idx)->parent = leaf_idx;                           \
+    set_write_color(set, left_idx, NODE_COLOR_BLACK);                          \
+    set_write_color(set, right_idx, NODE_COLOR_BLACK);                         \
                                                                                \
-    *leaf = (typeof(*set.buf)){                                                \
-        .color = NODE_COLOR_RED,                                               \
-        .entry = entry_var,                                                    \
+    *leaf = (typeof(*set.nodes)){                                              \
         .hash = hash,                                                          \
         .left = left_idx,                                                      \
         .parent = leaf->parent,                                                \
         .right = right_idx,                                                    \
     };                                                                         \
                                                                                \
+    set.entries[leaf_idx] = entry_var;                                         \
+    set_write_color(set, leaf_idx, NODE_COLOR_RED);                            \
+                                                                               \
     set_rb_insert_fixup(set, leaf_idx);                                        \
   } while (0)
 
 #define set_rb_insert_fixup_dir(set, node_idx, f_branch, f_direction)          \
   do {                                                                         \
-    typeof(set.buf) node = set_get_node(set, node_idx);                        \
-    typeof(set.buf) uncle = set_get_uncle(set, node, f_branch);                \
-    if (uncle->color == NODE_COLOR_RED) {                                      \
-      set_get_parent(set, node)->color = NODE_COLOR_BLACK;                     \
-      uncle->color = NODE_COLOR_BLACK;                                         \
-      set_get_grandparent(set, node)->color = NODE_COLOR_RED;                  \
-      node_idx = set_get_parent(set, node)->parent;                            \
+    typeof(set.nodes) node = set_get_node(set, node_idx);                      \
+    size_t parent_idx = node->parent;                                          \
+                                                                               \
+    typeof(set.nodes) parent = set_get_node(set, parent_idx);                  \
+    size_t grandparent_idx = parent->parent;                                   \
+                                                                               \
+    typeof(set.nodes) grandparent = set_get_node(set, grandparent_idx);        \
+    size_t uncle_idx = grandparent->f_branch;                                  \
+                                                                               \
+    if (set_read_color(set, uncle_idx) == NODE_COLOR_RED) {                    \
+      set_write_color(set, parent_idx, NODE_COLOR_BLACK);                      \
+      set_write_color(set, uncle_idx, NODE_COLOR_BLACK);                       \
+      set_write_color(set, grandparent_idx, NODE_COLOR_RED);                   \
+      node_idx = grandparent_idx;                                              \
     } else {                                                                   \
       if (node == set_get_sibling(set, node, f_branch)) {                      \
         node_idx = node->parent;                                               \
+                                                                               \
         node = set_get_node(set, node_idx);                                    \
+        parent_idx = node->parent;                                             \
+                                                                               \
+        parent = set_get_node(set, parent_idx);                                \
+                                                                               \
         set_rot(set, node_idx, f_branch, f_direction);                         \
       }                                                                        \
-      set_get_parent(set, node)->color = NODE_COLOR_BLACK;                     \
-      set_get_grandparent(set, node)->color = NODE_COLOR_RED;                  \
-      set_rot(set, set_get_parent(set, node)->parent, f_direction, f_branch);  \
+      set_write_color(set, parent_idx, NODE_COLOR_BLACK);                      \
+      if (parent->parent != 0) {                                               \
+        set_write_color(set, parent->parent, NODE_COLOR_RED);                  \
+        set_rot(set, parent->parent, f_direction, f_branch);                   \
+      }                                                                        \
     }                                                                          \
   } while (0)
 
@@ -260,9 +310,10 @@
 #define set_rb_insert_fixup(set, node_idx)                                     \
   do {                                                                         \
     while (true) {                                                             \
-      typeof(set.buf) node = set_get_node(set, node_idx);                      \
-      typeof(set.buf) parent = set_get_parent(set, node);                      \
-      if (parent == NULL || parent->color != NODE_COLOR_RED) {                 \
+      typeof(set.nodes) node = set_get_node(set, node_idx);                    \
+      typeof(set.nodes) parent = set_get_parent(set, node);                    \
+      if (parent == NULL ||                                                    \
+          set_read_color(set, node->parent) != NODE_COLOR_RED) {               \
         break;                                                                 \
       }                                                                        \
       if (parent == set_get_sibling(set, parent, left)) {                      \
@@ -271,14 +322,14 @@
         set_rb_insert_fixup_right(set, node_idx);                              \
       }                                                                        \
     }                                                                          \
-    set_get_root(set)->color = NODE_COLOR_BLACK;                               \
+    set_write_color(set, set.root, NODE_COLOR_BLACK);                          \
   } while (0)
 
 #define set_remove(set, entry)                                                 \
   do {                                                                         \
     uint64_t hash = set.hash_fn(entry);                                        \
     size_t node_idx = find_node(set, hash);                                    \
-    typeof(set.buf) node = set_get_node(set, node_idx);                        \
+    typeof(set.nodes) node = set_get_node(set, node_idx);                      \
                                                                                \
     if (node->hash != hash) {                                                  \
       break;                                                                   \
@@ -290,7 +341,7 @@
     } else if (set_get_node(set, node->right)->hash == HASH_NIL) {             \
       orphan_idx = set_get_node(set, node->left);                              \
     } else {                                                                   \
-      typeof(set.buf) next = set_next_in_branch(node);                         \
+      typeof(set.nodes) next = set_next_in_branch(node);                       \
       assert(next != NULL);                                                    \
       node->hash = next->hash;                                                 \
       node->entry = next->entry;                                               \
@@ -300,14 +351,14 @@
       break;                                                                   \
     }                                                                          \
                                                                                \
-    typeof(set.buf) orphan = set_get_node(set, orphan_idx);                    \
+    typeof(set.nodes) orphan = set_get_node(set, orphan_idx);                  \
     *node = *orphan;                                                           \
     set_free_node(orphan_idx);                                                 \
   } while (0)
 
 #define set_getidx(set, v_idx)                                                 \
   ({                                                                           \
-    typeof(set.buf) node = set_get_root(set);                                  \
+    typeof(set.nodes) node = set_get_root(set);                                \
     if (node->hash == HASH_NIL) {                                              \
       node = NULL;                                                             \
     } else {                                                                   \
@@ -330,7 +381,7 @@
 
 #define set_size(set)                                                          \
   ({                                                                           \
-    typeof(set.buf) node = set_first(set);                                     \
+    typeof(set.nodes) node = set_first(set);                                   \
     size_t size = 0;                                                           \
     while (node != NULL) {                                                     \
       size++;                                                                  \
@@ -343,15 +394,15 @@
   ({                                                                           \
     uint64_t hash = set.hash_fn(entry);                                        \
     size_t node_idx = find_node(set, hash);                                    \
-    typeof(set.buf) node = set_get_node(set, node_idx);                        \
+    typeof(set.nodes) node = set_get_node(set, node_idx);                      \
     node->hash == hash;                                                        \
   })
 
 #define set_rot(set, node_idx, f_branch, f_direction)                          \
   do {                                                                         \
-    typeof(set.buf) rot_node = set_get_node(set, node_idx);                    \
+    typeof(set.nodes) rot_node = set_get_node(set, node_idx);                  \
     size_t f_branch_idx = rot_node->f_branch;                                  \
-    typeof(set.buf) f_branch = set_get_node(set, f_branch_idx);                \
+    typeof(set.nodes) f_branch = set_get_node(set, f_branch_idx);              \
     assert(f_branch->hash != HASH_NIL);                                        \
     rot_node->f_branch = f_branch->f_direction;                                \
     if (set_get_node(set, f_branch->f_direction)->hash != HASH_NIL) {          \

@@ -80,11 +80,11 @@ int main(void)
   run_test(test_addr_idx_conversions, "test_addr_idx_conversions", 12);
   run_test(test_initing_set, "test_initing_set", 31);
   run_test(test_add_first_member, "test_add_first_member", 52);
-  run_test(test_add_second_larger_member, "test_add_second_larger_member", 77);
-  run_test(test_add_second_smaller_member, "test_add_second_smaller_member", 112);
-  run_test(test_add_third_member_line, "test_add_third_member_line", 147);
-  run_test(test_add_third_member_triangle, "test_add_third_member_triangle", 177);
-  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 207);
+  run_test(test_add_second_larger_member, "test_add_second_larger_member", 79);
+  run_test(test_add_second_smaller_member, "test_add_second_smaller_member", 118);
+  run_test(test_add_third_member_line, "test_add_third_member_line", 157);
+  run_test(test_add_third_member_triangle, "test_add_third_member_triangle", 191);
+  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 232);
 
   return UNITY_END();
 }

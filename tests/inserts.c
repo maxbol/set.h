@@ -38,13 +38,13 @@ void test_initing_set(void) {
   size_t root_node_idx = set_idx(set.root);
   TEST_ASSERT_EQUAL(root_node_idx, 0);
 
-  typeof(*set.buf) root_node = set.buf[root_node_idx];
+  typeof(*set.nodes) root_node = set.nodes[root_node_idx];
+  uint8_t root_color = set_read_color(set, root_node_idx);
   TEST_ASSERT_EQUAL(root_node.hash, HASH_NIL);
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
   TEST_ASSERT_EQUAL(root_node.left, IDX_NIL);
   TEST_ASSERT_EQUAL(root_node.right, IDX_NIL);
-  TEST_ASSERT_EQUAL(root_node.entry, 0);
-  TEST_ASSERT_EQUAL(root_node.color, 0);
+  TEST_ASSERT_EQUAL(root_color, 0);
 
   set_free(set);
 }
@@ -57,13 +57,15 @@ void test_add_first_member(void) {
   size_t root_node_idx = set_idx(set.root);
   TEST_ASSERT_EQUAL(root_node_idx, 0);
 
-  typeof(*set.buf) root_node = set.buf[root_node_idx];
+  typeof(*set.nodes) root_node = set.nodes[root_node_idx];
+  typeof(*set.entries) root_entry = set.entries[root_node_idx];
+  bool root_color = set_read_color(set, root_node_idx);
   TEST_ASSERT_EQUAL(root_node.hash, set_uint32_hash_fn(2));
   // TODO(2025-02-09, Max Bolotin): Parent is non-nil here, and shouldn't be.
   // Fix it!!
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
-  TEST_ASSERT_EQUAL(root_node.entry, 2);
-  TEST_ASSERT_EQUAL(root_node.color, 0);
+  TEST_ASSERT_EQUAL(root_entry, 2);
+  TEST_ASSERT_EQUAL(root_color, 0);
 
   size_t left_idx = set_idx(root_node.left);
   TEST_ASSERT_NOT_EQUAL(left_idx, 0);
@@ -84,10 +86,12 @@ void test_add_second_larger_member(void) {
   size_t root_node_idx = set_idx(set.root);
   TEST_ASSERT_EQUAL(root_node_idx, 0);
 
-  typeof(*set.buf) root_node = set.buf[root_node_idx];
+  typeof(*set.nodes) root_node = set.nodes[root_node_idx];
+  typeof(*set.entries) root_entry = set.entries[root_node_idx];
+  bool root_color = set_read_color(set, root_node_idx);
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
-  TEST_ASSERT_EQUAL(root_node.entry, 2);
-  TEST_ASSERT_EQUAL(root_node.color, 0);
+  TEST_ASSERT_EQUAL(root_entry, 2);
+  TEST_ASSERT_EQUAL(root_color, 0);
 
   size_t left_idx = set_idx(root_node.left);
   TEST_ASSERT_NOT_EQUAL(left_idx, 0);
@@ -95,17 +99,19 @@ void test_add_second_larger_member(void) {
   size_t right_idx = set_idx(root_node.right);
   TEST_ASSERT_NOT_EQUAL(right_idx, 0);
 
-  typeof(*set.buf) left = set.buf[left_idx];
+  typeof(*set.nodes) left = set.nodes[left_idx];
   TEST_ASSERT_EQUAL(left.hash, HASH_NIL);
   TEST_ASSERT_EQUAL(left.left, 0);
   TEST_ASSERT_EQUAL(left.right, 0);
 
-  typeof(*set.buf) right = set.buf[right_idx];
+  typeof(*set.nodes) right = set.nodes[right_idx];
+  typeof(*set.entries) right_entry = set.entries[right_idx];
+  bool right_color = set_read_color(set, right_idx);
   TEST_ASSERT_EQUAL(right.hash, set_uint32_hash_fn(6));
   TEST_ASSERT_NOT_EQUAL(set_idx(right.left), 0);
   TEST_ASSERT_NOT_EQUAL(set_idx(right.right), 0);
-  TEST_ASSERT_EQUAL(right.entry, 6);
-  TEST_ASSERT_EQUAL(right.color, NODE_COLOR_RED);
+  TEST_ASSERT_EQUAL(right_entry, 6);
+  TEST_ASSERT_EQUAL(right_color, NODE_COLOR_RED);
   TEST_ASSERT_EQUAL(right.parent, set_addr(0));
 }
 
@@ -119,10 +125,12 @@ void test_add_second_smaller_member(void) {
   size_t root_node_idx = set_idx(set.root);
   TEST_ASSERT_EQUAL(root_node_idx, 0);
 
-  typeof(*set.buf) root_node = set.buf[root_node_idx];
+  typeof(*set.nodes) root_node = set.nodes[root_node_idx];
+  typeof(*set.entries) root_entry = set.entries[root_node_idx];
+  bool root_color = set_read_color(set, root_node_idx);
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
-  TEST_ASSERT_EQUAL(root_node.entry, 2);
-  TEST_ASSERT_EQUAL(root_node.color, 0);
+  TEST_ASSERT_EQUAL(root_entry, 2);
+  TEST_ASSERT_EQUAL(root_color, 0);
 
   size_t left_idx = set_idx(root_node.left);
   TEST_ASSERT_NOT_EQUAL(left_idx, 0);
@@ -130,15 +138,17 @@ void test_add_second_smaller_member(void) {
   size_t right_idx = set_idx(root_node.right);
   TEST_ASSERT_NOT_EQUAL(right_idx, 0);
 
-  typeof(*set.buf) left = set.buf[left_idx];
+  typeof(*set.nodes) left = set.nodes[left_idx];
+  typeof(*set.entries) left_entry = set.entries[left_idx];
+  bool left_color = set_read_color(set, left_idx);
   TEST_ASSERT_EQUAL(left.hash, set_uint32_hash_fn(1));
   TEST_ASSERT_NOT_EQUAL(set_idx(left.left), 0);
   TEST_ASSERT_NOT_EQUAL(set_idx(left.right), 0);
-  TEST_ASSERT_EQUAL(left.entry, 1);
-  TEST_ASSERT_EQUAL(left.color, NODE_COLOR_RED);
+  TEST_ASSERT_EQUAL(left_entry, 1);
+  TEST_ASSERT_EQUAL(left_color, NODE_COLOR_RED);
   TEST_ASSERT_EQUAL(left.parent, set_addr(0));
 
-  typeof(*set.buf) right = set.buf[right_idx];
+  typeof(*set.nodes) right = set.nodes[right_idx];
   TEST_ASSERT_EQUAL(right.hash, HASH_NIL);
   TEST_ASSERT_EQUAL(right.left, 0);
   TEST_ASSERT_EQUAL(right.right, 0);
@@ -154,21 +164,25 @@ void test_add_third_member_line(void) {
 
   size_t root_node_idx = set_idx(set.root);
 
-  typeof(*set.buf) root_node = set.buf[root_node_idx];
-  TEST_ASSERT_EQUAL(root_node.entry, 3);
+  typeof(*set.nodes) root_node = set.nodes[root_node_idx];
+  typeof(*set.entries) root_entry = set.entries[root_node_idx];
+  TEST_ASSERT_EQUAL(root_entry, 3);
 
   size_t left_idx = set_idx(root_node.left);
   size_t right_idx = set_idx(root_node.right);
 
-  typeof(*set.buf) left = set.buf[left_idx];
-  typeof(*set.buf) right = set.buf[right_idx];
+  typeof(*set.nodes) left = set.nodes[left_idx];
+  typeof(*set.nodes) right = set.nodes[right_idx];
 
-  TEST_ASSERT_EQUAL(left.entry, 2);
+  typeof(*set.entries) left_entry = set.entries[left_idx];
+  typeof(*set.entries) right_entry = set.entries[right_idx];
+
+  TEST_ASSERT_EQUAL(left_entry, 2);
   TEST_ASSERT_EQUAL(left.parent, set_addr(root_node_idx));
   TEST_ASSERT_EQUAL(set_get_node(set, left.left)->hash, HASH_NIL);
   TEST_ASSERT_EQUAL(set_get_node(set, left.right)->hash, HASH_NIL);
 
-  TEST_ASSERT_EQUAL(right.entry, 4);
+  TEST_ASSERT_EQUAL(right_entry, 4);
   TEST_ASSERT_EQUAL(right.parent, set_addr(root_node_idx));
   TEST_ASSERT_EQUAL(set_get_node(set, right.left)->hash, HASH_NIL);
   TEST_ASSERT_EQUAL(set_get_node(set, right.right)->hash, HASH_NIL);
@@ -184,24 +198,35 @@ void test_add_third_member_triangle(void) {
 
   size_t root_node_idx = set_idx(set.root);
 
-  typeof(*set.buf) root_node = set.buf[root_node_idx];
-  TEST_ASSERT_EQUAL(root_node.entry, 4);
+  typeof(*set.nodes) root_node = set.nodes[root_node_idx];
+  typeof(*set.entries) root_entry = set.entries[root_node_idx];
+  bool root_color = set_read_color(set, root_node_idx);
+  TEST_ASSERT_EQUAL(root_entry, 4);
+  TEST_ASSERT_EQUAL(root_color, NODE_COLOR_BLACK);
 
   size_t left_idx = set_idx(root_node.left);
   size_t right_idx = set_idx(root_node.right);
 
-  typeof(*set.buf) left = set.buf[left_idx];
-  typeof(*set.buf) right = set.buf[right_idx];
+  typeof(*set.nodes) left = set.nodes[left_idx];
+  typeof(*set.nodes) right = set.nodes[right_idx];
 
-  TEST_ASSERT_EQUAL(left.entry, 2);
+  typeof(*set.entries) left_entry = set.entries[left_idx];
+  typeof(*set.entries) right_entry = set.entries[right_idx];
+
+  bool left_color = set_read_color(set, left_idx);
+  bool right_color = set_read_color(set, right_idx);
+
+  TEST_ASSERT_EQUAL(left_entry, 2);
   TEST_ASSERT_EQUAL(left.parent, set_addr(root_node_idx));
   TEST_ASSERT_EQUAL(set_get_node(set, left.left)->hash, HASH_NIL);
   TEST_ASSERT_EQUAL(set_get_node(set, left.right)->hash, HASH_NIL);
+  TEST_ASSERT_EQUAL(left_color, NODE_COLOR_RED);
 
-  TEST_ASSERT_EQUAL(right.entry, 5);
+  TEST_ASSERT_EQUAL(right_entry, 5);
   TEST_ASSERT_EQUAL(right.parent, set_addr(root_node_idx));
   TEST_ASSERT_EQUAL(set_get_node(set, right.left)->hash, HASH_NIL);
   TEST_ASSERT_EQUAL(set_get_node(set, right.right)->hash, HASH_NIL);
+  TEST_ASSERT_EQUAL(right_color, NODE_COLOR_RED);
 }
 
 void test_insert_sizeidentity(void) {
