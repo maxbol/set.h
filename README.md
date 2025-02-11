@@ -44,18 +44,11 @@ int main(void) {
   }
 
   // Iterate over members in set by getting the first set member and then using set_next
-  typeof(set.root) node = set_first(set);
-  do {
-    uint32_t entry = node->entry;
-    // Do something with each node...
-  } while ((node = set_next(node)));
-
-  // Alternatively, use set_getidx to get set member entry with specific index.
-  for (size_t i = 0; i < size; i++) {
-    uint32_t *entry = set_getidx(set, i);
-    if (entry != NULL) {
-      // Do something with entry...
-    }
+  size_t cursor = set_first(set);
+  while (cursor != 0) {
+    uint32_t entry = set_get_entry(set, cursor);
+    cursor = set_next(set, cursor);
+    // Do something with the entry...
   }
 
   // Remove set entry

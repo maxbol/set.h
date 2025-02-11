@@ -14,6 +14,7 @@
     devShells = with pkgs; {
       default = mkShell {
         buildInputs = [
+          raylib
         ];
 
         nativeBuildInputs = [
