@@ -69,18 +69,8 @@ typedef struct {
     set.entries[idx];                                                          \
   });
 
-#define set_get_parent(set, node) set_get_node(set, node->parent)
-
-#define set_get_grandparent(set, node)                                         \
-  set_get_parent(set, set_get_parent(set, node))
-
-#define set_get_uncle(set, node, f_branch)                                     \
-  set_get_node(set, set_get_grandparent(set, node)->f_branch)
-
 #define set_get_sibling(set, node, f_branch)                                   \
-  set_get_node(set, set_get_parent(set, node)->f_branch)
-
-#define set_get_root(set) set_get_node(set, set.root)
+  set_get_node(set, set_get_node(set, node->parent)->f_branch)
 
 #define set_read_bitval(set, addr, f_member)                                   \
   ({                                                                           \
@@ -340,7 +330,7 @@ typedef struct {
   do {                                                                         \
     while (true) {                                                             \
       typeof(set.nodes) node = set_get_node(set, node_idx);                    \
-      typeof(set.nodes) parent = set_get_parent(set, node);                    \
+      typeof(set.nodes) parent = set_get_node(set, node->parent);              \
       if (parent == NULL ||                                                    \
           set_read_color(set, node->parent) != NODE_COLOR_RED) {               \
         break;                                                                 \
@@ -415,12 +405,12 @@ typedef struct {
       set_get_node(set, f_branch->f_direction)->parent = node_idx;             \
     }                                                                          \
     f_branch->parent = rot_node->parent;                                       \
-    if (set_get_parent(set, rot_node) == NULL) {                               \
+    if (set_get_node(set, rot_node->parent) == NULL) {                         \
       set.root = f_branch_idx;                                                 \
     } else if (rot_node == set_get_sibling(set, rot_node, f_direction)) {      \
-      set_get_parent(set, rot_node)->f_direction = f_branch_idx;               \
+      set_get_node(set, rot_node->parent)->f_direction = f_branch_idx;         \
     } else {                                                                   \
-      set_get_parent(set, rot_node)->f_branch = f_branch_idx;                  \
+      set_get_node(set, rot_node->parent)->f_branch = f_branch_idx;            \
     }                                                                          \
     f_branch->f_direction = node_idx;                                          \
     rot_node->parent = f_branch_idx;                                           \
