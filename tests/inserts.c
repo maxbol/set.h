@@ -46,6 +46,8 @@ void test_initing_set(void) {
   TEST_ASSERT_EQUAL(root_node.right, IDX_NIL);
   TEST_ASSERT_EQUAL(root_color, 0);
 
+  TEST_ASSERT_EQUAL(set_has(set, 0), false);
+
   set_free(set);
 }
 
@@ -72,6 +74,9 @@ void test_add_first_member(void) {
 
   size_t right_idx = set_idx(root_node.right);
   TEST_ASSERT_NOT_EQUAL(right_idx, 0);
+
+  TEST_ASSERT_EQUAL(set_has(set, 2), true);
+  TEST_ASSERT_EQUAL(set_has(set, 3), false);
 
   set_free(set);
 }
@@ -100,6 +105,7 @@ void test_add_second_larger_member(void) {
   TEST_ASSERT_NOT_EQUAL(right_idx, 0);
 
   typeof(*set.nodes) left = set.nodes[left_idx];
+
   TEST_ASSERT_EQUAL(left.hash, HASH_NIL);
   TEST_ASSERT_EQUAL(left.left, 0);
   TEST_ASSERT_EQUAL(left.right, 0);
@@ -107,12 +113,20 @@ void test_add_second_larger_member(void) {
   typeof(*set.nodes) right = set.nodes[right_idx];
   typeof(*set.entries) right_entry = set.entries[right_idx];
   bool right_color = set_read_color(set, right_idx);
+
   TEST_ASSERT_EQUAL(right.hash, set_uint32_hash_fn(6));
   TEST_ASSERT_NOT_EQUAL(set_idx(right.left), 0);
   TEST_ASSERT_NOT_EQUAL(set_idx(right.right), 0);
   TEST_ASSERT_EQUAL(right_entry, 6);
   TEST_ASSERT_EQUAL(right_color, NODE_COLOR_RED);
   TEST_ASSERT_EQUAL(right.parent, set_addr(0));
+
+  TEST_ASSERT_EQUAL(set_has(set, 2), true);
+  TEST_ASSERT_EQUAL(set_has(set, 6), true);
+  TEST_ASSERT_EQUAL(set_has(set, 3), false);
+  TEST_ASSERT_EQUAL(set_has(set, 7), false);
+
+  set_free(set);
 }
 
 void test_add_second_smaller_member(void) {
@@ -152,6 +166,13 @@ void test_add_second_smaller_member(void) {
   TEST_ASSERT_EQUAL(right.hash, HASH_NIL);
   TEST_ASSERT_EQUAL(right.left, 0);
   TEST_ASSERT_EQUAL(right.right, 0);
+
+  TEST_ASSERT_EQUAL(set_has(set, 2), true);
+  TEST_ASSERT_EQUAL(set_has(set, 1), true);
+  TEST_ASSERT_EQUAL(set_has(set, 3), false);
+  TEST_ASSERT_EQUAL(set_has(set, 4), false);
+
+  set_free(set);
 }
 
 void test_add_third_member_line(void) {
@@ -186,6 +207,19 @@ void test_add_third_member_line(void) {
   TEST_ASSERT_EQUAL(right.parent, set_addr(root_node_idx));
   TEST_ASSERT_EQUAL(set_get_node(set, right.left)->hash, HASH_NIL);
   TEST_ASSERT_EQUAL(set_get_node(set, right.right)->hash, HASH_NIL);
+
+  bool has_two = set_has(set, 2);
+  if (has_two) {
+  }
+
+  // TEST_ASSERT_EQUAL(set_has(set, 2), true);
+  // TEST_ASSERT_EQUAL(set_has(set, 3), true);
+  // TEST_ASSERT_EQUAL(set_has(set, 4), true);
+  // TEST_ASSERT_EQUAL(set_has(set, 5), false);
+  // TEST_ASSERT_EQUAL(set_has(set, 6), false);
+  // TEST_ASSERT_EQUAL(set_has(set, 7), false);
+
+  // set_free(set);
 }
 
 void test_add_third_member_triangle(void) {
