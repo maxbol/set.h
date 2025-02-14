@@ -15,6 +15,7 @@ extern void test_add_second_larger_member(void);
 extern void test_add_second_smaller_member(void);
 extern void test_add_third_member_line(void);
 extern void test_add_third_member_triangle(void);
+extern void test_larger_range_add(void);
 extern void test_insert_sizeidentity(void);
 
 
@@ -78,13 +79,14 @@ int main(void)
 {
   UnityBegin("tests/inserts.c");
   run_test(test_addr_idx_conversions, "test_addr_idx_conversions", 12);
-  run_test(test_initing_set, "test_initing_set", 31);
-  run_test(test_add_first_member, "test_add_first_member", 54);
-  run_test(test_add_second_larger_member, "test_add_second_larger_member", 84);
-  run_test(test_add_second_smaller_member, "test_add_second_smaller_member", 132);
-  run_test(test_add_third_member_line, "test_add_third_member_line", 178);
-  run_test(test_add_third_member_triangle, "test_add_third_member_triangle", 225);
-  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 266);
+  run_test(test_initing_set, "test_initing_set", 22);
+  run_test(test_add_first_member, "test_add_first_member", 41);
+  run_test(test_add_second_larger_member, "test_add_second_larger_member", 70);
+  run_test(test_add_second_smaller_member, "test_add_second_smaller_member", 114);
+  run_test(test_add_third_member_line, "test_add_third_member_line", 155);
+  run_test(test_add_third_member_triangle, "test_add_third_member_triangle", 198);
+  run_test(test_larger_range_add, "test_larger_range_add", 236);
+  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 253);
 
   return UNITY_END();
 }

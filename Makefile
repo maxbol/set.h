@@ -7,8 +7,9 @@ CFLAGS 				:= -O0 -g -I. -I$(UNITY_ROOT)/src -I$(UNITY_ROOT)/extras/fixture/src 
 
 test: build_test
 	./out/test/test_inserts
+	./out/test/test_deletions
 
-build_test: out/test/test_inserts
+build_test: out/test/test_inserts out/test/test_deletions
 
 clean: 
 	rm -rf out/*
