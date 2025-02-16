@@ -6,19 +6,19 @@ CFLAGS 				:= -O0 -g -I. -I$(UNITY_ROOT)/src -I$(UNITY_ROOT)/extras/fixture/src 
 .PHONY: test clean all build_test
 
 test: build_test
-	./out/test/test_inserts
+	./out/test/test_insertions
 	./out/test/test_deletions
 
-build_test: out/test/test_inserts out/test/test_deletions
+build_test: out/test/test_insertions out/test/test_deletions
 
 clean: 
 	rm -rf out/*
 
 all: test
  
-out/test/test_%: $(UNITY_ROOT)/src/unity.c tests/%.c test_runners/%.c set.h
+out/test/test_%: $(UNITY_ROOT)/src/unity.c tests/%.c test_runners/%.c set.h setdebug.h
 	mkdir -p out/test
-	$(CC) $(CFLAGS) -o $@ $(UNITY_ROOT)/src/unity.c tests/$*.c test_runners/$*.c $(SRC) 
+	$(CC) $(CFLAGS) -o $@ $(UNITY_ROOT)/src/unity.c tests/$*.c test_runners/$*.c setdebug.c
 
 test_runners/%.c: tests/%.c
 	mkdir -p ./test_runners

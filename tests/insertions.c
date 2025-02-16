@@ -1,4 +1,5 @@
 #include "set.h"
+#include "setdebug.h"
 #include "unity.h"
 #include <stdint.h>
 
@@ -164,6 +165,9 @@ void test_add_third_member_line(void) {
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
   TEST_ASSERT_EQUAL(root_entry, 3);
 
+  TEST_ASSERT_NOT_EQUAL(root_node.left, 0);
+  TEST_ASSERT_NOT_EQUAL(root_node.right, 0);
+
   typeof(*set.nodes) left = *set_get_node(set, root_node.left);
   typeof(*set.nodes) right = *set_get_node(set, root_node.right);
 
@@ -180,18 +184,17 @@ void test_add_third_member_line(void) {
   TEST_ASSERT_EQUAL(set_read_inited(set, right.left), false);
   TEST_ASSERT_EQUAL(set_read_inited(set, right.right), false);
 
-  bool has_two = set_has(set, 2);
-  if (has_two) {
-  }
+  TEST_ASSERT_EQUAL(set_has(set, 2), true);
+  TEST_ASSERT_EQUAL(set_has(set, 3), true);
+  TEST_ASSERT_EQUAL(set_has(set, 4), true);
+  TEST_ASSERT_EQUAL(set_has(set, 5), false);
+  TEST_ASSERT_EQUAL(set_has(set, 6), false);
+  TEST_ASSERT_EQUAL(set_has(set, 7), false);
 
-  // TEST_ASSERT_EQUAL(set_has(set, 2), true);
-  // TEST_ASSERT_EQUAL(set_has(set, 3), true);
-  // TEST_ASSERT_EQUAL(set_has(set, 4), true);
-  // TEST_ASSERT_EQUAL(set_has(set, 5), false);
-  // TEST_ASSERT_EQUAL(set_has(set, 6), false);
-  // TEST_ASSERT_EQUAL(set_has(set, 7), false);
+  TEST_ASSERT_EQUAL(
+      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
+      1);
 
-  // set_free(set);
   set_free(set);
 }
 
@@ -208,6 +211,9 @@ void test_add_third_member_triangle(void) {
   bool root_color = set_read_color(set, set.root);
   TEST_ASSERT_EQUAL(root_entry, 4);
   TEST_ASSERT_EQUAL(root_color, NODE_COLOR_BLACK);
+
+  TEST_ASSERT_NOT_EQUAL(root_node.left, 0);
+  TEST_ASSERT_NOT_EQUAL(root_node.right, 0);
 
   typeof(*set.nodes) left = *set_get_node(set, root_node.left);
   typeof(*set.nodes) right = *set_get_node(set, root_node.right);
@@ -230,6 +236,10 @@ void test_add_third_member_triangle(void) {
   TEST_ASSERT_EQUAL(set_read_inited(set, right.right), false);
   TEST_ASSERT_EQUAL(right_color, NODE_COLOR_RED);
 
+  TEST_ASSERT_EQUAL(
+      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
+      1);
+
   set_free(set);
 }
 
@@ -244,6 +254,11 @@ void test_larger_range_add(void) {
   set_add(set, 6);
   set_add(set, 7);
   set_add(set, 8);
+  set_add(set, 9);
+
+  TEST_ASSERT_EQUAL(
+      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
+      2);
 
   TEST_ASSERT_EQUAL(set_get_entry(set, set.root), 5);
 
@@ -259,7 +274,11 @@ void test_insert_sizeidentity(void) {
   set_add(set, 6);
   set_add(set, 1);
   set_add(set, 10);
-  set_add(set, 6); // Duplicate of second add
+  set_add(set, 6);
+
+  TEST_ASSERT_EQUAL(
+      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
+      2);
 
   size_t size = set_size(set);
   TEST_ASSERT_EQUAL(4, size);

@@ -303,7 +303,6 @@ typedef struct {
     };                                                                         \
                                                                                \
     set_write_entry(set, leaf_idx, entry_var);                                 \
-    printf("Writing color %d to leaf_idx %zu...\n", NODE_COLOR_RED, leaf_idx); \
     set_write_color(set, leaf_idx, NODE_COLOR_RED);                            \
                                                                                \
     set_rb_insert_fixup(set, leaf_idx);                                        \
@@ -356,7 +355,6 @@ typedef struct {
       typeof(set.nodes) parent = set_get_node(set, node->parent);              \
       if (parent == NULL ||                                                    \
           set_read_color(set, node->parent) != NODE_COLOR_RED) {               \
-        printf("Breaking rb_fixup cuz parent doesn't exist or is not red\n");  \
         break;                                                                 \
       }                                                                        \
       if (parent == set_get_sibling(set, parent, left)) {                      \
@@ -370,7 +368,6 @@ typedef struct {
 
 #define set_remove(set, entry)                                                 \
   do {                                                                         \
-    printf("Calling set_remove()\n");                                          \
     uint64_t hash = set.hash_fn(entry);                                        \
     size_t node_idx = find_node(set, hash);                                    \
     typeof(set.nodes) node = set_get_node(set, node_idx);                      \
@@ -381,15 +378,11 @@ typedef struct {
                                                                                \
     size_t orphan_idx;                                                         \
     if (!set_read_inited(set, node->left)) {                                   \
-      printf("Singular orphan on right side\n");                               \
       orphan_idx = node->right;                                                \
     } else if (!set_read_inited(set, node->right)) {                           \
       orphan_idx = node->left;                                                 \
-      printf("Singular orphan on left side or no orphans\n");                  \
     } else {                                                                   \
-      printf("Double orphans\n");                                              \
       size_t next_idx = set_next_in_branch(set, node_idx);                     \
-      printf("next_idx=%zu\n", next_idx);                                      \
       assert(set_read_inited(set, next_idx) == true);                          \
       typeof(set.nodes) next = set_get_node(set, next_idx);                    \
       bool next_orig_color = set_read_color(set, next_idx);                    \
@@ -487,23 +480,20 @@ typedef struct {
   ({                                                                           \
     uint64_t hash = set.hash_fn(entry);                                        \
     size_t node_idx = find_node(set, hash);                                    \
-    printf("[set_has] node_idx=%zu\n", node_idx);                              \
     typeof(set.nodes) node = set_get_node(set, node_idx);                      \
-    printf("[set_has] node->hash=%lld\n", node->hash);                         \
-    printf("[set_has] hash=%lld\n", hash);                                     \
-    printf("[set_has] inited=%d\n", set_read_inited(set, node_idx));           \
     set_read_inited(set, node_idx) && node->hash == hash;                      \
   })
 
 #define set_rot(set, node_idx, f_branch, f_direction)                          \
   do {                                                                         \
-    typeof(set.nodes) rot_node = set_get_node(set, node_idx);                  \
+    size_t n_idx = (node_idx);                                                 \
+    typeof(set.nodes) rot_node = set_get_node(set, n_idx);                     \
     size_t f_branch_idx = rot_node->f_branch;                                  \
     assert(set_is_valid_addr(f_branch_idx));                                   \
     typeof(set.nodes) f_branch = set_get_node(set, f_branch_idx);              \
     rot_node->f_branch = f_branch->f_direction;                                \
     if (set_read_inited(set, f_branch->f_direction)) {                         \
-      set_get_node(set, f_branch->f_direction)->parent = node_idx;             \
+      set_get_node(set, f_branch->f_direction)->parent = n_idx;                \
     }                                                                          \
     f_branch->parent = rot_node->parent;                                       \
     if (set_get_node(set, rot_node->parent) == NULL) {                         \
@@ -513,7 +503,7 @@ typedef struct {
     } else {                                                                   \
       set_get_node(set, rot_node->parent)->f_branch = f_branch_idx;            \
     }                                                                          \
-    f_branch->f_direction = node_idx;                                          \
+    f_branch->f_direction = n_idx;                                             \
     rot_node->parent = f_branch_idx;                                           \
   } while (0)
 
