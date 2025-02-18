@@ -13,10 +13,6 @@
   in {
     devShells = with pkgs; {
       default = mkShell {
-        buildInputs = [
-          raylib
-        ];
-
         nativeBuildInputs = [
           pkg-config
           gnumake
