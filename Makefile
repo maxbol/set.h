@@ -16,7 +16,7 @@ clean:
 
 all: test
  
-out/test/test_%: $(UNITY_ROOT)/src/unity.c tests/%.c test_runners/%.c set.h setdebug.h
+out/test/test_%: $(UNITY_ROOT)/src/unity.c tests/%.c test_runners/%.c set.h setdebug.h setdebug.c
 	mkdir -p out/test
 	$(CC) $(CFLAGS) -o $@ $(UNITY_ROOT)/src/unity.c tests/$*.c test_runners/$*.c setdebug.c
 

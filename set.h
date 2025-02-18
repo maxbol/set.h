@@ -59,7 +59,7 @@ typedef struct {
   ({                                                                           \
     size_t a = (addr);                                                         \
     typeof(set.nodes) retval = NULL;                                           \
-    if (set_is_valid_addr(addr)) {                                             \
+    if (set_is_valid_addr(a)) {                                                \
       size_t idx = set_idx(a);                                                 \
       assert(set.capacity > idx);                                              \
       retval = &set.nodes[idx];                                                \
@@ -115,9 +115,9 @@ typedef struct {
     }                                                                          \
   } while (0)
 
-#define set_read_color(set, addr) set_read_bitval(set, addr, colors)
+#define set_is_red(set, addr) set_read_bitval(set, addr, colors)
 #define set_write_color(set, addr, val) set_write_bitval(set, addr, colors, val)
-#define set_read_inited(set, addr) set_read_bitval(set, addr, inited)
+#define set_is_inited(set, addr) set_read_bitval(set, addr, inited)
 #define set_write_inited(set, addr, val)                                       \
   set_write_bitval(set, addr, inited, val)
 
@@ -191,27 +191,36 @@ typedef struct {
     free(set.free_list);                                                       \
   } while (0)
 
+#define set_ult_in_branch(set, node_idx, f_direction)                          \
+  ({                                                                           \
+    size_t idx = (node_idx);                                                   \
+    typeof(set.nodes) node;                                                    \
+    while (true) {                                                             \
+      node = set_get_node(set, idx);                                           \
+      if (!set_is_inited(set, node->f_direction)) {                            \
+        break;                                                                 \
+      }                                                                        \
+      idx = node->f_direction;                                                 \
+    }                                                                          \
+    idx;                                                                       \
+  })
+
 #define set_seq_in_branch(set, node_idx, f_branch, f_direction)                \
   ({                                                                           \
     size_t idx = 0;                                                            \
-    if (set_read_inited(set, node_idx) == 1) {                                 \
+    if (set_is_inited(set, node_idx) == 1) {                                   \
       typeof(set.nodes) node = set_get_node(set, node_idx);                    \
                                                                                \
-      if (set_read_inited(set, node->f_branch) == 1) {                         \
-        idx = node->f_branch;                                                  \
-        while (true) {                                                         \
-          node = set_get_node(set, idx);                                       \
-          if (set_is_valid_addr(node->f_direction) &&                          \
-              set_read_inited(set, node->f_direction) == 0) {                  \
-            break;                                                             \
-          }                                                                    \
-          idx = node->f_direction;                                             \
-        }                                                                      \
+      if (set_is_inited(set, node->f_branch) == 1) {                           \
+        idx = set_ult_in_branch(set, node->f_branch, f_direction);             \
       }                                                                        \
     }                                                                          \
     idx;                                                                       \
   })
 
+#define set_min_in_branch(set, node_idx) set_ult_in_branch(set, node_idx, left);
+#define set_max_in_bnrach(set, node_idx)                                       \
+  set_ult_in_branch(set, node_idx, right);
 #define set_next_in_branch(set, node_idx)                                      \
   set_seq_in_branch(set, node_idx, right, left);
 #define set_prev_in_branch(set, node_idx)                                      \
@@ -249,7 +258,7 @@ typedef struct {
   ({                                                                           \
     size_t cursor = set.root;                                                  \
     size_t retval = 0;                                                         \
-    while (set_is_valid_addr(cursor) && set_read_inited(set, cursor)) {        \
+    while (set_is_valid_addr(cursor) && set_is_inited(set, cursor)) {          \
       retval = cursor;                                                         \
       cursor = set_get_node(set, cursor)->f_direction;                         \
     }                                                                          \
@@ -263,7 +272,7 @@ typedef struct {
   ({                                                                           \
     size_t n_idx = set.root;                                                   \
     size_t find_node_retval;                                                   \
-    do {                                                                       \
+    while (set_is_valid_addr(n_idx)) {                                         \
       find_node_retval = n_idx;                                                \
       typeof(set.nodes) node = set_get_node(set, n_idx);                       \
       if (key > node->hash) {                                                  \
@@ -273,7 +282,7 @@ typedef struct {
       } else {                                                                 \
         break;                                                                 \
       }                                                                        \
-    } while (set_is_valid_addr(n_idx));                                        \
+    };                                                                         \
     find_node_retval;                                                          \
   })
 
@@ -282,7 +291,7 @@ typedef struct {
     uint64_t hash = set.hash_fn(entry_var);                                    \
     size_t leaf_idx = find_node(set, hash);                                    \
                                                                                \
-    if (set_read_inited(set, leaf_idx) != 0) {                                 \
+    if (set_is_inited(set, leaf_idx) != 0) {                                   \
       break;                                                                   \
     }                                                                          \
                                                                                \
@@ -319,7 +328,15 @@ typedef struct {
     typeof(set.nodes) grandparent = set_get_node(set, grandparent_idx);        \
     size_t uncle_idx = grandparent->f_branch;                                  \
                                                                                \
-    if (set_read_color(set, uncle_idx) == NODE_COLOR_RED) {                    \
+    printf("Node=%d, Parent=%d, Grandparent=%d, Uncle=%d\n",                   \
+           set_get_entry(set, node_idx), set_get_entry(set, parent_idx),       \
+           set_get_entry(set, grandparent_idx),                                \
+           set_get_entry(set, uncle_idx));                                     \
+    if (node_idx == grandparent_idx) {                                         \
+      exit(1);                                                                 \
+    }                                                                          \
+                                                                               \
+    if (set_is_red(set, uncle_idx) == NODE_COLOR_RED) {                        \
       set_write_color(set, parent_idx, NODE_COLOR_BLACK);                      \
       set_write_color(set, uncle_idx, NODE_COLOR_BLACK);                       \
       set_write_color(set, grandparent_idx, NODE_COLOR_RED);                   \
@@ -353,8 +370,7 @@ typedef struct {
     while (true) {                                                             \
       typeof(set.nodes) node = set_get_node(set, node_idx);                    \
       typeof(set.nodes) parent = set_get_node(set, node->parent);              \
-      if (parent == NULL ||                                                    \
-          set_read_color(set, node->parent) != NODE_COLOR_RED) {               \
+      if (parent == NULL || set_is_red(set, node->parent) != NODE_COLOR_RED) { \
         break;                                                                 \
       }                                                                        \
       if (parent == set_get_sibling(set, parent, left)) {                      \
@@ -376,39 +392,45 @@ typedef struct {
       break;                                                                   \
     }                                                                          \
                                                                                \
-    size_t orphan_idx;                                                         \
-    if (!set_read_inited(set, node->left)) {                                   \
-      orphan_idx = node->right;                                                \
-    } else if (!set_read_inited(set, node->right)) {                           \
-      orphan_idx = node->left;                                                 \
-    } else {                                                                   \
-      size_t next_idx = set_next_in_branch(set, node_idx);                     \
-      assert(set_read_inited(set, next_idx) == true);                          \
-      typeof(set.nodes) next = set_get_node(set, next_idx);                    \
-      bool next_orig_color = set_read_color(set, next_idx);                    \
-      node->hash = next->hash;                                                 \
-      set_write_entry(set, node_idx, set_get_entry(set, next_idx));            \
-      set_write_color(set, node_idx, set_read_color(set, next_idx));           \
-      set_free_node(set, next->left);                                          \
-      set_free_node(set, next->right);                                         \
-      *next = (typeof(*set.nodes))NODE_NIL;                                    \
-      set_clear_entry(set, next_idx);                                          \
+    size_t color_sample_idx = node_idx;                                        \
+    size_t fixup_target_idx;                                                   \
                                                                                \
-      if (next_orig_color == NODE_COLOR_BLACK) {                               \
-        set_delete_fixup(set, node_idx);                                       \
+    bool color_sample_is_red = set_is_red(set, node_idx);                      \
+                                                                               \
+    if (!set_is_inited(set, node->left)) {                                     \
+      fixup_target_idx = node->right;                                          \
+      set_transplant(set, node_idx, node->right);                              \
+    } else if (!set_is_inited(set, node->right)) {                             \
+      fixup_target_idx = node->left;                                           \
+      set_transplant(set, node_idx, node->left);                               \
+    } else {                                                                   \
+      assert(set_is_inited(set, node->right));                                 \
+      color_sample_idx = set_min_in_branch(set, node->right);                  \
+      typeof(set.nodes) color_sample = set_get_node(set, color_sample_idx);    \
+      color_sample_is_red = set_is_red(set, color_sample_idx);                 \
+      fixup_target_idx = color_sample->right;                                  \
+                                                                               \
+      if (color_sample_idx == node->right) {                                   \
+        set_get_node(set, fixup_target_idx)->parent = color_sample_idx;        \
+      } else {                                                                 \
+        set_transplant(set, color_sample_idx, fixup_target_idx);               \
+        color_sample->right = node->right;                                     \
+        set_get_node(set, color_sample->right)->parent = color_sample_idx;     \
       }                                                                        \
-      break;                                                                   \
+                                                                               \
+      set_transplant(set, node_idx, color_sample_idx);                         \
+                                                                               \
+      color_sample->left = node->left;                                         \
+      set_get_node(set, color_sample->left)->parent = color_sample_idx;        \
+      set_write_color(set, color_sample_idx, set_is_red(set, node_idx));       \
     }                                                                          \
                                                                                \
-    typeof(set.nodes) orphan = set_get_node(set, orphan_idx);                  \
-    node->hash = orphan->hash;                                                 \
-    node->left = orphan->left;                                                 \
-    node->right = orphan->right;                                               \
-    set_write_entry(set, node_idx, set_get_entry(set, orphan_idx));            \
-    set_write_color(set, node_idx, set_read_color(set, orphan_idx));           \
-    set_write_inited(set, node_idx, set_read_inited(set, orphan_idx));         \
+    if (!color_sample_is_red) {                                                \
+      set_delete_fixup(set, fixup_target_idx);                                 \
+    }                                                                          \
                                                                                \
-    set_free_node(set, orphan_idx);                                            \
+    set_free_node(set, node_idx);                                              \
+    set_clear_entry(set, node_idx);                                            \
   } while (0)
 
 #define set_delete_fixup_dir(set, node_idx, f_branch, f_direction)             \
@@ -417,7 +439,7 @@ typedef struct {
     typeof(set.nodes) parent = set_get_node(set, node->parent);                \
     size_t sibling_idx = parent->f_branch;                                     \
                                                                                \
-    if (set_read_color(set, sibling_idx) == NODE_COLOR_RED) {                  \
+    if (set_is_red(set, sibling_idx) == NODE_COLOR_RED) {                      \
       set_write_color(set, sibling_idx, NODE_COLOR_BLACK);                     \
       set_write_color(set, node->parent, NODE_COLOR_RED);                      \
       set_rot(set, node->parent, f_branch, f_direction);                       \
@@ -426,13 +448,13 @@ typedef struct {
                                                                                \
     typeof(set.nodes) sibling = set_get_node(set, sibling_idx);                \
                                                                                \
-    if (set_read_color(set, sibling->f_branch) == NODE_COLOR_BLACK &&          \
-        set_read_color(set, sibling->f_direction) == NODE_COLOR_BLACK) {       \
+    if (set_is_red(set, sibling->f_branch) == NODE_COLOR_BLACK &&              \
+        set_is_red(set, sibling->f_direction) == NODE_COLOR_BLACK) {           \
       set_write_color(set, sibling_idx, NODE_COLOR_RED);                       \
       node_idx = node->parent;                                                 \
       node = set_get_node(set, node_idx);                                      \
     } else {                                                                   \
-      if (set_read_color(set, sibling->f_branch) == NODE_COLOR_BLACK) {        \
+      if (set_is_red(set, sibling->f_branch) == NODE_COLOR_BLACK) {            \
         set_write_color(set, sibling->f_direction, NODE_COLOR_BLACK);          \
         set_write_color(set, sibling_idx, NODE_COLOR_RED);                     \
         set_rot(set, sibling_idx, f_direction, f_branch);                      \
@@ -440,7 +462,7 @@ typedef struct {
             set_get_node(set, set_get_node(set, node_idx)->parent)->f_branch;  \
         sibling = set_get_node(set, sibling_idx);                              \
       }                                                                        \
-      set_write_color(set, sibling_idx, set_read_color(set, node->parent));    \
+      set_write_color(set, sibling_idx, set_is_red(set, node->parent));        \
       set_write_color(set, node->parent, NODE_COLOR_BLACK);                    \
       set_write_color(set, sibling->f_branch, NODE_COLOR_BLACK);               \
       set_rot(set, node->parent, f_branch, f_direction);                       \
@@ -452,7 +474,7 @@ typedef struct {
   do {                                                                         \
     while (node_idx != set.root) {                                             \
       typeof(set.nodes) node = set_get_node(set, node_idx);                    \
-      bool color = set_read_color(set, node_idx);                              \
+      bool color = set_is_red(set, node_idx);                                  \
       if (color != NODE_COLOR_BLACK) {                                         \
         break;                                                                 \
       }                                                                        \
@@ -469,7 +491,7 @@ typedef struct {
   ({                                                                           \
     size_t cursor = set_first(set);                                            \
     size_t size = 0;                                                           \
-    while (set_is_valid_addr(cursor) && set_read_inited(set, cursor)) {        \
+    while (set_is_valid_addr(cursor) && set_is_inited(set, cursor)) {          \
       size++;                                                                  \
       cursor = set_next(set, cursor);                                          \
     }                                                                          \
@@ -481,7 +503,7 @@ typedef struct {
     uint64_t hash = set.hash_fn(entry);                                        \
     size_t node_idx = find_node(set, hash);                                    \
     typeof(set.nodes) node = set_get_node(set, node_idx);                      \
-    set_read_inited(set, node_idx) && node->hash == hash;                      \
+    set_is_inited(set, node_idx) && node->hash == hash;                        \
   })
 
 #define set_rot(set, node_idx, f_branch, f_direction)                          \
@@ -492,11 +514,11 @@ typedef struct {
     assert(set_is_valid_addr(f_branch_idx));                                   \
     typeof(set.nodes) f_branch = set_get_node(set, f_branch_idx);              \
     rot_node->f_branch = f_branch->f_direction;                                \
-    if (set_read_inited(set, f_branch->f_direction)) {                         \
+    if (set_is_inited(set, f_branch->f_direction)) {                           \
       set_get_node(set, f_branch->f_direction)->parent = n_idx;                \
     }                                                                          \
     f_branch->parent = rot_node->parent;                                       \
-    if (set_get_node(set, rot_node->parent) == NULL) {                         \
+    if (!set_is_valid_addr(rot_node->parent)) {                                \
       set.root = f_branch_idx;                                                 \
     } else if (rot_node == set_get_sibling(set, rot_node, f_direction)) {      \
       set_get_node(set, rot_node->parent)->f_direction = f_branch_idx;         \
@@ -507,21 +529,21 @@ typedef struct {
     rot_node->parent = f_branch_idx;                                           \
   } while (0)
 
-#define set_transplant(set, node_idx, target_idx)                              \
+#define set_transplant(set, dest_idx, src_idx)                                 \
   do {                                                                         \
-    typeof(set.node) node = set_get_node(set, node_idx);                       \
-    if (!set_is_valid_addr(node->parent)) {                                    \
-      set.root = target_idx;                                                   \
+    typeof(set.nodes) dest = set_get_node(set, dest_idx);                      \
+    if (!set_is_valid_addr(dest->parent)) {                                    \
+      set.root = src_idx;                                                      \
     } else {                                                                   \
-      typeof(set.node) parent = set_get_node(set, node->parent);               \
-      if (node_idx = parent->left) {                                           \
-        parent->left = target_idx;                                             \
+      typeof(set.nodes) parent = set_get_node(set, dest->parent);              \
+      if (dest_idx == parent->left) {                                          \
+        parent->left = src_idx;                                                \
       } else {                                                                 \
-        parent->right = target_idx;                                            \
+        parent->right = src_idx;                                               \
       }                                                                        \
     }                                                                          \
-    typeof(set.node) target = set_get_node(set, target_idx);                   \
-    target->parent = node->parent;                                             \
+    typeof(set.nodes) src = set_get_node(set, src_idx);                        \
+    src->parent = dest->parent;                                                \
   } while (0)
 
 #define set_rot_left(set, node_idx) set_rot(set, node_idx, right, left)

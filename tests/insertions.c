@@ -27,7 +27,7 @@ void test_initing_set(void) {
   TEST_ASSERT_EQUAL(1, set.root);
 
   typeof(*set.nodes) root_node = *set_get_node(set, set.root);
-  uint8_t root_color = set_read_color(set, set.root);
+  uint8_t root_color = set_is_red(set, set.root);
   TEST_ASSERT_EQUAL(root_node.hash, HASH_NIL);
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
   TEST_ASSERT_EQUAL(root_node.left, IDX_NIL);
@@ -48,7 +48,7 @@ void test_add_first_member(void) {
 
   typeof(*set.nodes) root_node = *set_get_node(set, set.root);
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
-  bool root_color = set_read_color(set, set.root);
+  bool root_color = set_is_red(set, set.root);
   TEST_ASSERT_EQUAL(root_node.hash, set_uint32_hash_fn(2));
   // TODO(2025-02-09, Max Bolotin): Parent is non-nil here, and shouldn't be.
   // Fix it!!
@@ -79,7 +79,7 @@ void test_add_second_larger_member(void) {
 
   typeof(*set.nodes) root_node = *set_get_node(set, set.root);
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
-  bool root_color = set_read_color(set, set.root);
+  bool root_color = set_is_red(set, set.root);
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
   TEST_ASSERT_EQUAL(root_entry, 2);
   TEST_ASSERT_EQUAL(root_color, 0);
@@ -95,7 +95,7 @@ void test_add_second_larger_member(void) {
 
   typeof(*set.nodes) right = *set_get_node(set, root_node.right);
   typeof(*set.entries) right_entry = set_get_entry(set, root_node.right);
-  bool right_color = set_read_color(set, root_node.right);
+  bool right_color = set_is_red(set, root_node.right);
 
   TEST_ASSERT_EQUAL(right.hash, set_uint32_hash_fn(6));
   TEST_ASSERT_NOT_EQUAL(set_idx(right.left), 0);
@@ -122,7 +122,7 @@ void test_add_second_smaller_member(void) {
   TEST_ASSERT_EQUAL(set.root, set_addr(0));
   typeof(*set.nodes) root_node = *set_get_node(set, set.root);
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
-  bool root_color = set_read_color(set, set.root);
+  bool root_color = set_is_red(set, set.root);
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
   TEST_ASSERT_EQUAL(root_entry, 2);
   TEST_ASSERT_EQUAL(root_color, 0);
@@ -132,7 +132,7 @@ void test_add_second_smaller_member(void) {
 
   typeof(*set.nodes) left = *set_get_node(set, root_node.left);
   typeof(*set.entries) left_entry = set_get_entry(set, root_node.left);
-  bool left_color = set_read_color(set, root_node.left);
+  bool left_color = set_is_red(set, root_node.left);
   TEST_ASSERT_EQUAL(left.hash, set_uint32_hash_fn(1));
   TEST_ASSERT_NOT_EQUAL(left.left, 0);
   TEST_ASSERT_NOT_EQUAL(left.right, 0);
@@ -176,13 +176,13 @@ void test_add_third_member_line(void) {
 
   TEST_ASSERT_EQUAL(left_entry, 2);
   TEST_ASSERT_EQUAL(left.parent, set.root);
-  TEST_ASSERT_EQUAL(set_read_inited(set, left.left), false);
-  TEST_ASSERT_EQUAL(set_read_inited(set, left.right), false);
+  TEST_ASSERT_EQUAL(set_is_inited(set, left.left), false);
+  TEST_ASSERT_EQUAL(set_is_inited(set, left.right), false);
 
   TEST_ASSERT_EQUAL(right_entry, 4);
   TEST_ASSERT_EQUAL(right.parent, set.root);
-  TEST_ASSERT_EQUAL(set_read_inited(set, right.left), false);
-  TEST_ASSERT_EQUAL(set_read_inited(set, right.right), false);
+  TEST_ASSERT_EQUAL(set_is_inited(set, right.left), false);
+  TEST_ASSERT_EQUAL(set_is_inited(set, right.right), false);
 
   TEST_ASSERT_EQUAL(set_has(set, 2), true);
   TEST_ASSERT_EQUAL(set_has(set, 3), true);
@@ -208,7 +208,7 @@ void test_add_third_member_triangle(void) {
 
   typeof(*set.nodes) root_node = *set_get_node(set, set.root);
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
-  bool root_color = set_read_color(set, set.root);
+  bool root_color = set_is_red(set, set.root);
   TEST_ASSERT_EQUAL(root_entry, 4);
   TEST_ASSERT_EQUAL(root_color, NODE_COLOR_BLACK);
 
@@ -221,19 +221,19 @@ void test_add_third_member_triangle(void) {
   typeof(*set.entries) left_entry = set_get_entry(set, root_node.left);
   typeof(*set.entries) right_entry = set_get_entry(set, root_node.right);
 
-  bool left_color = set_read_color(set, root_node.left);
-  bool right_color = set_read_color(set, root_node.right);
+  bool left_color = set_is_red(set, root_node.left);
+  bool right_color = set_is_red(set, root_node.right);
 
   TEST_ASSERT_EQUAL(left_entry, 2);
   TEST_ASSERT_EQUAL(left.parent, set.root);
-  TEST_ASSERT_EQUAL(set_read_inited(set, left.left), false);
-  TEST_ASSERT_EQUAL(set_read_inited(set, left.right), false);
+  TEST_ASSERT_EQUAL(set_is_inited(set, left.left), false);
+  TEST_ASSERT_EQUAL(set_is_inited(set, left.right), false);
   TEST_ASSERT_EQUAL(left_color, NODE_COLOR_RED);
 
   TEST_ASSERT_EQUAL(right_entry, 5);
   TEST_ASSERT_EQUAL(right.parent, set.root);
-  TEST_ASSERT_EQUAL(set_read_inited(set, right.left), false);
-  TEST_ASSERT_EQUAL(set_read_inited(set, right.right), false);
+  TEST_ASSERT_EQUAL(set_is_inited(set, right.left), false);
+  TEST_ASSERT_EQUAL(set_is_inited(set, right.right), false);
   TEST_ASSERT_EQUAL(right_color, NODE_COLOR_RED);
 
   TEST_ASSERT_EQUAL(

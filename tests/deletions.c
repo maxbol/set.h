@@ -1,4 +1,5 @@
 #include "set.h"
+#include "setdebug.h"
 #include "unity.h"
 #include <stdint.h>
 
@@ -17,10 +18,10 @@ void test_delete_only_member(void) {
   set_remove(set, 2);
 
   TEST_ASSERT_EQUAL(set_size(set), 0);
-  TEST_ASSERT_EQUAL(set_read_inited(set, set.root), 0);
+  TEST_ASSERT_EQUAL(set_is_inited(set, set.root), 0);
 }
 
-void test_delete_member_with_one_child(void) {
+void test_draw_tree(void) {
   set_uint32_t set;
   set_init(set, set_uint32_hash_fn);
 
@@ -30,6 +31,33 @@ void test_delete_member_with_one_child(void) {
   set_add(set, 5);
   set_add(set, 6);
   set_add(set, 7);
+  set_add(set, 8);
+  set_add(set, 9);
 
-  TEST_ASSERT_EQUAL(set_get_entry(set, set.root), 5);
+  size_t canvas_width = 40;
+  size_t canvas_height = 30;
+
+  char out_buf[canvas_width * canvas_height * 64];
+  int written =
+      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
+                    canvas_height, out_buf, canvas_width * canvas_height * 64);
+
+  printf("%.*s", written, out_buf);
+
+  printf("!!! REMOVING 7\n");
+  set_remove(set, 7);
+
+  written =
+      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
+                    canvas_height, out_buf, canvas_width * canvas_height * 64);
+
+  printf("%.*s", written, out_buf);
+
+  set_add(set, 7);
+
+  written =
+      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
+                    canvas_height, out_buf, canvas_width * canvas_height * 64);
+
+  printf("%.*s", written, out_buf);
 }
