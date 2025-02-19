@@ -64,7 +64,7 @@ int main(void) {
 A separate `setdebug.c` file (with corresponding header) is included in the source for debugging purposes.
 
 ### `set_node_blackheight()`
-Use to get the black-height of any node in your set.
+Use to get the black-height of any node in your set. Asserts that the black-height is uniform regardless of path travelled.
 
 ```c
 set_uint32_t set;
@@ -83,7 +83,7 @@ size_t target_idx = set_get_node(set, set.root)->right;
 size_t set_blackheight = set_node_blackheight(set.nodes, set.colors, set.inited, target_idx, false);
 ```
 
-### `set_draw_tree`
+### `set_draw_tree()`
 Draw an ASCII representation of the tree structure of the set.
 
 ```c
