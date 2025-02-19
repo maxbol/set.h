@@ -176,8 +176,9 @@ typedef struct {
 
 #define set_free_node(set, addr)                                               \
   do {                                                                         \
-    size_t free_list_byte_idx = floor((float)addr / 8);                        \
-    size_t free_list_bit_idx = addr % 8;                                       \
+    size_t idx = set_idx(addr);                                                \
+    size_t free_list_byte_idx = floor((float)idx / 8);                         \
+    size_t free_list_bit_idx = idx % 8;                                        \
     uint8_t bmask = 1 << (7 - free_list_bit_idx);                              \
     set.free_list[free_list_byte_idx] ^= bmask;                                \
   } while (0)
@@ -328,10 +329,6 @@ typedef struct {
     typeof(set.nodes) grandparent = set_get_node(set, grandparent_idx);        \
     size_t uncle_idx = grandparent->f_branch;                                  \
                                                                                \
-    printf("Node=%d, Parent=%d, Grandparent=%d, Uncle=%d\n",                   \
-           set_get_entry(set, node_idx), set_get_entry(set, parent_idx),       \
-           set_get_entry(set, grandparent_idx),                                \
-           set_get_entry(set, uncle_idx));                                     \
     if (node_idx == grandparent_idx) {                                         \
       exit(1);                                                                 \
     }                                                                          \
@@ -514,7 +511,7 @@ typedef struct {
     assert(set_is_valid_addr(f_branch_idx));                                   \
     typeof(set.nodes) f_branch = set_get_node(set, f_branch_idx);              \
     rot_node->f_branch = f_branch->f_direction;                                \
-    if (set_is_inited(set, f_branch->f_direction)) {                           \
+    if (set_is_valid_addr(f_branch->f_direction)) {                            \
       set_get_node(set, f_branch->f_direction)->parent = n_idx;                \
     }                                                                          \
     f_branch->parent = rot_node->parent;                                       \

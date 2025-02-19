@@ -99,29 +99,8 @@ size_t set_draw_tree_node(set_node *nodes, uint8_t *colors, uint8_t *inited,
   size_t left_pad = 0;
   size_t right_pad = 0;
 
-  printf("Drawing tree... Idx: %zu, Node: %lld, Line: %zu\n", start_node,
-         node.hash, line);
-
   if (node.left != 0) {
     assert(node.right != 0);
-    if (nodes[set_idx(node.left)].parent != start_node) {
-      printf("Node %zu (with hash %lld): Left child %zu (with hash %lld) has "
-             "corrupt parent value (%zu, hash %lld)\n",
-             start_node, node.hash, node.left, nodes[set_idx(node.left)].hash,
-             nodes[set_idx(node.left)].parent,
-             nodes[set_idx(nodes[set_idx(node.left)].parent)].hash);
-      exit(1);
-    }
-    if (nodes[set_idx(node.right)].parent != start_node) {
-      printf("Node %zu (with hash %lld): Right child %zu (with hash %lld) has "
-             "corrupt parent value (%zu, hash %lld)\n",
-             start_node, node.hash, node.right, nodes[set_idx(node.right)].hash,
-             nodes[set_idx(node.right)].parent,
-             nodes[set_idx(nodes[set_idx(node.right)].parent)].hash);
-      exit(1);
-    }
-    assert(nodes[set_idx(node.left)].parent == start_node);
-    assert(nodes[set_idx(node.right)].parent == start_node);
 
     size_t next_padding = set_draw_tree_node(
         nodes, colors, inited, node.left, canvas, canvas_width, canvas_height,
