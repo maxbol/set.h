@@ -14,7 +14,11 @@ build_test: out/test/test_insertions out/test/test_deletions
 clean: 
 	rm -rf out/*
 
-all: test
+all: test interactive_tester
+
+out/interactive_tester: set.h setdebug.h setdebug.c interactive_tester/main.c
+	mkdir -p out
+	$(CC) $(CFLAGS) -o $@ interactive_tester/main.c setdebug.c
  
 out/test/test_%: $(UNITY_ROOT)/src/unity.c tests/%.c test_runners/%.c set.h setdebug.h setdebug.c
 	mkdir -p out/test

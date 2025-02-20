@@ -5,6 +5,8 @@
 
 #include "set.h"
 
+#define CELL_SIZE 64
+
 typedef enum { ROOT, LEFT, RIGHT } set_tree_line_alignment_t;
 
 size_t set_node_blackheight(set_node *nodes, uint8_t *colors, uint8_t *inited,

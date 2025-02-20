@@ -269,7 +269,7 @@ typedef struct {
 #define set_first(set) set_ult(set, left)
 #define set_last(set) set_ult(set, right)
 
-#define find_node(set, key)                                                    \
+#define set_find_node(set, key)                                                \
   ({                                                                           \
     size_t n_idx = set.root;                                                   \
     size_t find_node_retval;                                                   \
@@ -290,7 +290,7 @@ typedef struct {
 #define set_add(set, entry_var)                                                \
   do {                                                                         \
     uint64_t hash = set.hash_fn(entry_var);                                    \
-    size_t leaf_idx = find_node(set, hash);                                    \
+    size_t leaf_idx = set_find_node(set, hash);                                \
                                                                                \
     if (set_is_inited(set, leaf_idx) != 0) {                                   \
       break;                                                                   \
@@ -382,7 +382,7 @@ typedef struct {
 #define set_remove(set, entry)                                                 \
   do {                                                                         \
     uint64_t hash = set.hash_fn(entry);                                        \
-    size_t node_idx = find_node(set, hash);                                    \
+    size_t node_idx = set_find_node(set, hash);                                \
     typeof(set.nodes) node = set_get_node(set, node_idx);                      \
                                                                                \
     if (node->hash != hash) {                                                  \
@@ -498,7 +498,7 @@ typedef struct {
 #define set_has(set, entry)                                                    \
   ({                                                                           \
     uint64_t hash = set.hash_fn(entry);                                        \
-    size_t node_idx = find_node(set, hash);                                    \
+    size_t node_idx = set_find_node(set, hash);                                \
     typeof(set.nodes) node = set_get_node(set, node_idx);                      \
     set_is_inited(set, node_idx) && node->hash == hash;                        \
   })

@@ -17,7 +17,6 @@ This is mostly for me learning C, data structures and algorithms. Probably not a
 Copy `set.h` into your project and include it into your C file.
 
 ## Usage
-
 ```c
 #include "set.h"
 
@@ -58,7 +57,6 @@ int main(void) {
   set_free(set);
 }
 ```
-
 ## Debugging
 
 A separate `setdebug.c` file (with corresponding header) is included in the source for debugging purposes.
@@ -85,7 +83,6 @@ size_t set_blackheight = set_node_blackheight(set.nodes, set.colors, set.inited,
 
 ### `set_draw_tree()`
 Draw an ASCII representation of the tree structure of the set.
-
 ```c
 set_uint32_t set;
 set_init(set, set uint32_hash_fn);
