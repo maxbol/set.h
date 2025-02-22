@@ -3,51 +3,16 @@
 #include "set.h"
 #include "setdebug.h"
 
-size_t set_node_blackheight(set_node *nodes, uint8_t *colors, uint8_t *inited,
-                            size_t start_node, bool is_start) {
-  size_t node_idx = set_idx(start_node);
-  set_node node = nodes[node_idx];
-  size_t counter = 0;
-
-  size_t byte_idx = floor((float)node_idx / 8);
-  size_t bit_idx = node_idx % 8;
-  uint8_t mask = 1 << (7 - bit_idx);
-  bool is_black = (colors[byte_idx] & mask) == 0;
-  bool is_inited = (inited[byte_idx] & mask) != 0;
-
-  if (!is_start && is_black) {
-    counter += 1;
-  }
-
-  if (is_inited) {
-    assert(node.left != 0);
-    assert(node.right != 0);
-
-    size_t left_blackheight =
-        set_node_blackheight(nodes, colors, inited, node.left, false);
-    size_t right_blackheight =
-        set_node_blackheight(nodes, colors, inited, node.right, false);
-
-    if (left_blackheight != right_blackheight) {
-      fprintf(stderr,
-              "Warning: Different blackheight discovered for children of node "
-              "%zu (%lld) - left %zu, right %zu\n",
-              node_idx, node.hash, left_blackheight, right_blackheight);
-    }
-    // assert(left_blackheight == right_blackheight);
-
-    counter += left_blackheight;
-  }
-
-  return counter;
-}
-
-char *set_draw_alloc_canvas(size_t canvas_width, size_t canvas_height) {
-  char *canvas = malloc(CELL_SIZE * canvas_width * canvas_height);
+void set_clear_canvas(char *canvas, size_t canvas_width, size_t canvas_height) {
   for (int i = 0; i < canvas_width * canvas_height; i++) {
     canvas[i * CELL_SIZE] = ' ';
     canvas[(i * CELL_SIZE) + 1] = 0;
   }
+}
+
+char *set_draw_alloc_canvas(size_t canvas_width, size_t canvas_height) {
+  char *canvas = malloc(CELL_SIZE * canvas_width * canvas_height);
+  set_clear_canvas(canvas, canvas_width, canvas_height);
   return canvas;
 }
 
@@ -60,6 +25,16 @@ int set_draw_tree(set_node *nodes, uint8_t *colors, uint8_t *inited,
   set_draw_tree_node(nodes, colors, inited, start_node, canvas, canvas_width,
                      canvas_height, 0, 0, ROOT);
 
+  size_t offset =
+      set_draw_tree_canvas(canvas_width, canvas_height, canvas, out, out_len);
+
+  free(canvas);
+
+  return offset;
+}
+
+int set_draw_tree_canvas(size_t canvas_width, size_t canvas_height,
+                         char *canvas, char *out, size_t out_len) {
   int offset = 0;
 
   for (size_t i = 0; i < canvas_width + 2; i++) {
@@ -79,8 +54,6 @@ int set_draw_tree(set_node *nodes, uint8_t *colors, uint8_t *inited,
     offset += snprintf(&out[offset], out_len - offset, "-");
   }
   offset += snprintf(&out[offset], out_len - offset, "\n");
-
-  free(canvas);
 
   return offset;
 }
@@ -143,14 +116,17 @@ size_t set_draw_tree_node(set_node *nodes, uint8_t *colors, uint8_t *inited,
           offset += sprintf(&canvas[cell + offset], "\e[1m");
         }
       }
-      canvas[cell + offset] = data_out[i];
+      canvas[cell + (offset++)] = data_out[i];
       if (i == data_len - 1) {
-        sprintf(&canvas[cell + offset + 1], "\e[0m");
+        offset += sprintf(&canvas[cell + offset], "\e[0m");
       }
+      canvas[cell + offset] = 0;
       padding++;
     }
   } else {
-    padding += sprintf(&canvas[cell], "N");
+    canvas[cell] = 'N';
+    canvas[cell + 1] = 0;
+    padding++;
     data_len = 1;
   }
 
@@ -175,4 +151,42 @@ size_t set_draw_tree_node(set_node *nodes, uint8_t *colors, uint8_t *inited,
   }
 
   return padding;
+}
+size_t set_node_blackheight(set_node *nodes, uint8_t *colors, uint8_t *inited,
+                            size_t start_node, bool is_start) {
+  size_t node_idx = set_idx(start_node);
+  set_node node = nodes[node_idx];
+  size_t counter = 0;
+
+  size_t byte_idx = floor((float)node_idx / 8);
+  size_t bit_idx = node_idx % 8;
+  uint8_t mask = 1 << (7 - bit_idx);
+  bool is_black = (colors[byte_idx] & mask) == 0;
+  bool is_inited = (inited[byte_idx] & mask) != 0;
+
+  if (!is_start && is_black) {
+    counter += 1;
+  }
+
+  if (is_inited) {
+    assert(node.left != 0);
+    assert(node.right != 0);
+
+    size_t left_blackheight =
+        set_node_blackheight(nodes, colors, inited, node.left, false);
+    size_t right_blackheight =
+        set_node_blackheight(nodes, colors, inited, node.right, false);
+
+    if (left_blackheight != right_blackheight) {
+      fprintf(stderr,
+              "Warning: Different blackheight discovered for children of node "
+              "%zu (%lld) - left %zu, right %zu\n",
+              node_idx, node.hash, left_blackheight, right_blackheight);
+    }
+    // assert(left_blackheight == right_blackheight);
+
+    counter += left_blackheight;
+  }
+
+  return counter;
 }

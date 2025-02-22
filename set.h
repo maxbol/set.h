@@ -1,6 +1,25 @@
 #ifndef GENERIC_SET_H
 #define GENERIC_SET_H
 
+#ifndef SET_TRACE_STEPS
+#define SET_TRACE_STEPS false
+#endif // !SET_TRACE_STEPS
+
+#if SET_TRACE_STEPS
+#include <trace.h>
+#else
+#define trace_noop(...) (__VA_ARGS__)
+#define trace(...) trace_noop(__VA_ARGS__)
+#define start_trace(...) trace_noop(__VA_ARGS__)
+#define end_trace() trace_noop()
+#define flush_trace() trace_noop()
+#define set_trace_span(...) trace_noop(__VA_ARGS__)
+#define trace_result(...) trace_noop(__VA_ARGS__)
+#define trace_info(...) trace_noop(__VA_ARGS__)
+#define trace_span(...) trace_noop(__VA_ARGS__)
+#define trace_err(...) trace_noop(__VA_ARGS__)
+#endif
+
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
@@ -134,6 +153,13 @@ typedef struct {
     memset(set.inited, 0x00, set.capacity / 8);                                \
     set.root = set_alloc_new_node(set);                                        \
     set.hash_fn = hash_function;                                               \
+  } while (0)
+
+#define set_empty(set)                                                         \
+  do {                                                                         \
+    typeof(set.hash_fn) hash_fn = set.hash_fn;                                 \
+    set_free(set);                                                             \
+    set_init(set, hash_fn);                                                    \
   } while (0)
 
 #define set_alloc_new_node(set)                                                \
@@ -290,9 +316,11 @@ typedef struct {
 #define set_add(set, entry_var)                                                \
   do {                                                                         \
     uint64_t hash = set.hash_fn(entry_var);                                    \
+    start_trace(hash, trace_span("Adding node"));                              \
     size_t leaf_idx = set_find_node(set, hash);                                \
                                                                                \
     if (set_is_inited(set, leaf_idx) != 0) {                                   \
+      end_trace();                                                             \
       break;                                                                   \
     }                                                                          \
                                                                                \
@@ -316,6 +344,7 @@ typedef struct {
     set_write_color(set, leaf_idx, NODE_COLOR_RED);                            \
                                                                                \
     set_rb_insert_fixup(set, leaf_idx);                                        \
+    end_trace();                                                               \
   } while (0)
 
 #define set_rb_insert_fixup_dir(set, node_idx, f_branch, f_direction)          \
@@ -330,30 +359,75 @@ typedef struct {
     size_t uncle_idx = grandparent->f_branch;                                  \
                                                                                \
     if (node_idx == grandparent_idx) {                                         \
+      trace(trace_err("Node has same IDX as its own grandparent (%zu), "       \
+                      "corruption detected\n"),                                \
+            node_idx);                                                         \
       exit(1);                                                                 \
     }                                                                          \
                                                                                \
     if (set_is_red(set, uncle_idx) == NODE_COLOR_RED) {                        \
+      start_trace(node->hash, trace_span("Uncle is red."));                    \
+      trace(trace_result("Setting parent to black."));                         \
+      trace(trace_result("Setting uncle to black."));                          \
+      trace(trace_result("Setting grandparent to red."));                      \
+      end_trace();                                                             \
+                                                                               \
       set_write_color(set, parent_idx, NODE_COLOR_BLACK);                      \
       set_write_color(set, uncle_idx, NODE_COLOR_BLACK);                       \
       set_write_color(set, grandparent_idx, NODE_COLOR_RED);                   \
       node_idx = grandparent_idx;                                              \
     } else {                                                                   \
+      start_trace(node->hash, trace_span("Uncle is black."));                  \
       if (node == set_get_sibling(set, node, f_branch)) {                      \
+        start_trace(                                                           \
+            node->hash,                                                        \
+            trace_span("Triangle case (node is aligned in the opposite way "   \
+                       "as its parent)"));                                     \
+                                                                               \
         node_idx = node->parent;                                               \
                                                                                \
         node = set_get_node(set, node_idx);                                    \
+                                                                               \
+        trace(trace_result("Updating node pointer to parent: %lld"),           \
+              node->hash);                                                     \
+        set_trace_span(node->hash);                                            \
+        start_trace(node->hash, trace_span("Rotating node to " #f_direction)); \
+                                                                               \
         parent_idx = node->parent;                                             \
                                                                                \
         parent = set_get_node(set, parent_idx);                                \
                                                                                \
         set_rot(set, node_idx, f_branch, f_direction);                         \
+                                                                               \
+        end_trace();                                                           \
+        end_trace();                                                           \
       }                                                                        \
+                                                                               \
+      start_trace(                                                             \
+          node->hash,                                                          \
+          trace_span("Line case (node is aligned same way as its parent)"));   \
+                                                                               \
+      trace(trace_result("Setting parent color to black"));                    \
+                                                                               \
       set_write_color(set, parent_idx, NODE_COLOR_BLACK);                      \
+                                                                               \
       if (parent->parent != 0) {                                               \
+        start_trace(node->hash, trace_span("Parent is not root node"));        \
+        trace(trace_result("Setting grandparent color to red"));               \
+                                                                               \
         set_write_color(set, parent->parent, NODE_COLOR_RED);                  \
+                                                                               \
+        start_trace(set_get_node(set, parent->parent)->hash,                   \
+                    trace_span("Rotating grandparent of %lld to " #f_branch),  \
+                    node->hash);                                               \
+                                                                               \
         set_rot(set, parent->parent, f_direction, f_branch);                   \
+                                                                               \
+        end_trace();                                                           \
+        end_trace();                                                           \
       }                                                                        \
+      end_trace();                                                             \
+      end_trace();                                                             \
     }                                                                          \
   } while (0)
 
@@ -366,17 +440,28 @@ typedef struct {
   do {                                                                         \
     while (true) {                                                             \
       typeof(set.nodes) node = set_get_node(set, node_idx);                    \
+      start_trace(node->hash, trace_span("Fixing up node %lld"), node->hash);  \
       typeof(set.nodes) parent = set_get_node(set, node->parent);              \
       if (parent == NULL || set_is_red(set, node->parent) != NODE_COLOR_RED) { \
+        trace(trace_info("Parent is root or black, doing nothing"));           \
+        end_trace();                                                           \
         break;                                                                 \
       }                                                                        \
       if (parent == set_get_sibling(set, parent, left)) {                      \
+        trace(trace_info(                                                      \
+            "Parent is in its parents left tree, doing fixup_left"));          \
         set_rb_insert_fixup_left(set, node_idx);                               \
       } else {                                                                 \
+        trace(trace_info("Parent is in its parents right tree, "               \
+                         "doing fixup_right"));                                \
         set_rb_insert_fixup_right(set, node_idx);                              \
       }                                                                        \
+      end_trace();                                                             \
     }                                                                          \
+    start_trace(set_get_node(set, set.root)->hash,                             \
+                trace_span("Setting root to black"));                          \
     set_write_color(set, set.root, NODE_COLOR_BLACK);                          \
+    end_trace();                                                               \
   } while (0)
 
 #define set_remove(set, entry)                                                 \
@@ -506,22 +591,36 @@ typedef struct {
 #define set_rot(set, node_idx, f_branch, f_direction)                          \
   do {                                                                         \
     size_t n_idx = (node_idx);                                                 \
+    const char *align_branch = #f_branch;                                      \
+    const char *align_direction = #f_direction;                                \
     typeof(set.nodes) rot_node = set_get_node(set, n_idx);                     \
     size_t f_branch_idx = rot_node->f_branch;                                  \
     assert(set_is_valid_addr(f_branch_idx));                                   \
     typeof(set.nodes) f_branch = set_get_node(set, f_branch_idx);              \
+                                                                               \
+    trace(trace_result("Binding %s field to %s child of %s child"),            \
+          align_branch, align_direction, align_branch);                        \
     rot_node->f_branch = f_branch->f_direction;                                \
     if (set_is_valid_addr(f_branch->f_direction)) {                            \
       set_get_node(set, f_branch->f_direction)->parent = n_idx;                \
     }                                                                          \
+                                                                               \
     f_branch->parent = rot_node->parent;                                       \
     if (!set_is_valid_addr(rot_node->parent)) {                                \
+      trace(trace_result("Binding root to %s child"), align_branch);           \
       set.root = f_branch_idx;                                                 \
     } else if (rot_node == set_get_sibling(set, rot_node, f_direction)) {      \
+      trace(trace_result("Binding %s field of parent to %s child"),            \
+            align_direction, align_branch);                                    \
       set_get_node(set, rot_node->parent)->f_direction = f_branch_idx;         \
     } else {                                                                   \
+      trace(trace_result("Binding %s field of parent to %s child"),            \
+            align_branch, align_branch);                                       \
       set_get_node(set, rot_node->parent)->f_branch = f_branch_idx;            \
     }                                                                          \
+                                                                               \
+    trace(trace_result("Binding %s field of %s child to this node"),           \
+          align_direction, align_branch);                                      \
     f_branch->f_direction = n_idx;                                             \
     rot_node->parent = f_branch_idx;                                           \
   } while (0)
