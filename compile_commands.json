@@ -9,15 +9,16 @@
       "-I./Unity/src",
       "-I./Unity/extras/fixture/src",
       "-Wall",
-      "-Werror",
+      "-fmacro-backtrace-limit=0",
       "-DSET_TRACE_STEPS",
+      "-Werror",
       "-o",
-      "out/test/test_insertions",
-      "./Unity/src/unity.c"
+      "out/interactive_tester",
+      "interactive_tester/main.c"
     ],
     "directory": "/Users/maxbolotin/Source/set.h",
-    "file": "/Users/maxbolotin/Source/set.h/Unity/src/unity.c",
-    "output": "/Users/maxbolotin/Source/set.h/out/test/test_insertions"
+    "file": "/Users/maxbolotin/Source/set.h/interactive_tester/main.c",
+    "output": "/Users/maxbolotin/Source/set.h/out/interactive_tester"
   },
   {
     "arguments": [
@@ -29,54 +30,36 @@
       "-I./Unity/src",
       "-I./Unity/extras/fixture/src",
       "-Wall",
-      "-Werror",
+      "-fmacro-backtrace-limit=0",
       "-DSET_TRACE_STEPS",
-      "-o",
-      "out/test/test_insertions",
-      "tests/insertions.c"
-    ],
-    "directory": "/Users/maxbolotin/Source/set.h",
-    "file": "/Users/maxbolotin/Source/set.h/tests/insertions.c",
-    "output": "/Users/maxbolotin/Source/set.h/out/test/test_insertions"
-  },
-  {
-    "arguments": [
-      "/nix/store/bd2lcra6js8pvki2ndzgbgdp9hc2i4x2-clang-wrapper-16.0.6/bin/clang",
-      "-c",
-      "-O0",
-      "-g",
-      "-I.",
-      "-I./Unity/src",
-      "-I./Unity/extras/fixture/src",
-      "-Wall",
       "-Werror",
-      "-DSET_TRACE_STEPS",
       "-o",
-      "out/test/test_insertions",
-      "test_runners/insertions.c"
-    ],
-    "directory": "/Users/maxbolotin/Source/set.h",
-    "file": "/Users/maxbolotin/Source/set.h/test_runners/insertions.c",
-    "output": "/Users/maxbolotin/Source/set.h/out/test/test_insertions"
-  },
-  {
-    "arguments": [
-      "/nix/store/bd2lcra6js8pvki2ndzgbgdp9hc2i4x2-clang-wrapper-16.0.6/bin/clang",
-      "-c",
-      "-O0",
-      "-g",
-      "-I.",
-      "-I./Unity/src",
-      "-I./Unity/extras/fixture/src",
-      "-Wall",
-      "-Werror",
-      "-DSET_TRACE_STEPS",
-      "-o",
-      "out/test/test_insertions",
+      "out/interactive_tester",
       "setdebug.c"
     ],
     "directory": "/Users/maxbolotin/Source/set.h",
     "file": "/Users/maxbolotin/Source/set.h/setdebug.c",
-    "output": "/Users/maxbolotin/Source/set.h/out/test/test_insertions"
+    "output": "/Users/maxbolotin/Source/set.h/out/interactive_tester"
+  },
+  {
+    "arguments": [
+      "/nix/store/bd2lcra6js8pvki2ndzgbgdp9hc2i4x2-clang-wrapper-16.0.6/bin/clang",
+      "-c",
+      "-O0",
+      "-g",
+      "-I.",
+      "-I./Unity/src",
+      "-I./Unity/extras/fixture/src",
+      "-Wall",
+      "-fmacro-backtrace-limit=0",
+      "-DSET_TRACE_STEPS",
+      "-Werror",
+      "-o",
+      "out/interactive_tester",
+      "trace.c"
+    ],
+    "directory": "/Users/maxbolotin/Source/set.h",
+    "file": "/Users/maxbolotin/Source/set.h/trace.c",
+    "output": "/Users/maxbolotin/Source/set.h/out/interactive_tester"
   }
 ]
