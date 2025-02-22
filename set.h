@@ -6,13 +6,13 @@
 #endif // !SET_TRACE_STEPS
 
 #if SET_TRACE_STEPS
-#include <trace.h>
+#include "trace.h"
 #else
 #define trace_noop(...) (__VA_ARGS__)
 #define trace(...) trace_noop(__VA_ARGS__)
 #define start_trace(...) trace_noop(__VA_ARGS__)
-#define end_trace() trace_noop()
-#define flush_trace() trace_noop()
+#define end_trace()
+#define flush_trace()
 #define set_trace_span(...) trace_noop(__VA_ARGS__)
 #define trace_result(...) trace_noop(__VA_ARGS__)
 #define trace_info(...) trace_noop(__VA_ARGS__)
