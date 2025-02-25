@@ -15,12 +15,44 @@ typedef enum {
   Remove = 3,
   Clear = 4,
   Print = 5,
+  Back = 6,
+  Next = 7,
 } Command;
 
 typedef struct {
   size_t line;
   size_t col;
 } Cell;
+
+#define TRACE_HIST_ITEM_BUF_SIZE 1024 * 1024
+
+typedef struct {
+  uint32_t len;
+  char buf[TRACE_HIST_ITEM_BUF_SIZE];
+} TraceHistItem;
+
+#define commit_to_hist()                                                       \
+  do {                                                                         \
+    history_idx -= rewind_amount;                                              \
+    rewind_limit = (rewind_limit - rewind_amount > 0)                          \
+                       ? (rewind_limit - rewind_amount)                        \
+                       : 0;                                                    \
+    rewind_amount = 0;                                                         \
+                                                                               \
+    printf("Writing set to history slot %zu\n", history_idx + 1);              \
+                                                                               \
+    history_idx++;                                                             \
+                                                                               \
+    size_t history_cursor = history_idx % 5;                                   \
+                                                                               \
+    history[history_cursor] = set;                                             \
+    trace_hist[history_cursor].len = sflush_trace(                             \
+        trace_hist[history_cursor].buf, TRACE_HIST_ITEM_BUF_SIZE);             \
+                                                                               \
+    if (rewind_limit < 4) {                                                    \
+      rewind_limit++;                                                          \
+    }                                                                          \
+  } while (0)
 
 char *consume_opt(char *cmd_string, char *out) {
   unsigned int i = 0;
@@ -115,6 +147,10 @@ char *read_command(char *cmd_string, Command *cmd, uint32_t *entry,
   } else if (strcmp(cmd_buf, "print") == 0) {
     *cmd = Print;
     cmd_string = read_cell(cmd_string, cmd, cell);
+  } else if (strcmp(cmd_buf, "back") == 0) {
+    *cmd = Back;
+  } else if (strcmp(cmd_buf, "next") == 0) {
+    *cmd = Next;
   } else {
     *cmd = Unknown;
   }
@@ -136,7 +172,29 @@ int main(void) {
   // Clear screen and reset cursor
   printf("\e[2J\e[H");
 
+  set_uint32_t history[5];
+  TraceHistItem trace_hist[5];
+  size_t history_idx = 0;
+  size_t rewind_amount = 0;
+  size_t rewind_limit = 0;
+
+  history[history_idx] = set;
+
   while (true) {
+    assert(history_idx >= rewind_amount);
+
+    size_t history_cursor = (history_idx - rewind_amount) % 5;
+
+    set_uint32_t set = set_clone(history[history_cursor]);
+    TraceHistItem trace_hist_item = trace_hist[history_cursor];
+
+    printf("%.*s", trace_hist_item.len, trace_hist_item.buf);
+
+    size_t blackheight =
+        set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true);
+
+    printf("Current blackheight: %zu\n", blackheight);
+
     set_clear_canvas(canvas, canvas_width, canvas_height);
 
     set_draw_tree_node(set.nodes, set.colors, set.inited, set.root, canvas,
@@ -172,16 +230,19 @@ int main(void) {
     case Add: {
       printf("Adding %d to set\n", entry);
       set_add(set, entry);
+      commit_to_hist();
       break;
     }
     case Remove: {
       printf("Removing %d from set\n", entry);
       set_remove(set, entry);
+      commit_to_hist();
       break;
     }
     case Clear: {
       printf("Clearing set\n");
       set_empty(set);
+      commit_to_hist();
       break;
     }
     case Print: {
@@ -203,14 +264,24 @@ int main(void) {
       printf("\n\n\n");
       break;
     }
+    case Back: {
+      printf("Going back...\n");
+      if (rewind_amount < rewind_limit) {
+        rewind_amount++;
+      } else {
+        fprintf(stderr, "Can't go further backward\n");
+      }
+      break;
     }
-
-    size_t blackheight =
-        set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true);
-
-    printf("Current blackheight: %zu\n", blackheight);
-
-    flush_trace();
+    case Next: {
+      if (rewind_amount > 0) {
+        rewind_amount--;
+      } else {
+        fprintf(stderr, "Can't go further forward\n");
+      }
+      break;
+    }
+    }
   }
 
   free(canvas);

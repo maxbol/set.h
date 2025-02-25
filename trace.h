@@ -19,7 +19,7 @@ trace_ctx_t *get_trace_ctx();
 #define trace_indent(indent, ...)                                              \
   do {                                                                         \
     for (int i = 0; i < indent; i++) {                                         \
-      trace_printf(" ");                                                       \
+      trace_printf("  ");                                                      \
     }                                                                          \
     trace_printf(__VA_ARGS__);                                                 \
     trace_printf(" \e[1;36m[span_id=%lld]\e[0m",                               \
@@ -45,6 +45,15 @@ trace_ctx_t *get_trace_ctx();
     printf("%.*s", (int)get_trace_ctx()->cursor, get_trace_ctx()->out);        \
     get_trace_ctx()->cursor = 0;                                               \
   } while (0)
+
+#define sflush_trace(v_out, v_out_len)                                         \
+  ({                                                                           \
+    int written =                                                              \
+        snprintf(v_out, v_out_len, "%.*s", (int)get_trace_ctx()->cursor,       \
+                 get_trace_ctx()->out);                                        \
+    get_trace_ctx()->cursor = 0;                                               \
+    written;                                                                   \
+  })
 
 #define set_trace_span(span_id)                                                \
   do {                                                                         \

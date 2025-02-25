@@ -135,6 +135,33 @@ typedef struct {
     set_write_inited(set, addr, false);                                        \
   } while (0)
 
+#define set_clone(set)                                                         \
+  ({                                                                           \
+    typeof(set) clone;                                                         \
+    typeof(set.hash_fn) hash_function = set.hash_fn;                           \
+                                                                               \
+    clone.capacity = set.capacity;                                             \
+    clone.root = set.root;                                                     \
+    clone.nodes = malloc(sizeof(typeof(*clone.nodes)) * set.capacity);         \
+    clone.entries = malloc(sizeof(typeof(*clone.entries)) * set.capacity);     \
+    clone.free_list = malloc(clone.capacity / 8);                              \
+    clone.colors = malloc(clone.capacity / 8);                                 \
+    clone.inited = malloc(clone.capacity / 8);                                 \
+                                                                               \
+    for (size_t i = 0; i < clone.capacity; i++) {                              \
+      clone.nodes[i] = set.nodes[i];                                           \
+      clone.entries[i] = set.entries[i];                                       \
+    }                                                                          \
+    for (size_t i = 0; i < clone.capacity / 8; i++) {                          \
+      clone.free_list[i] = set.free_list[i];                                   \
+      clone.colors[i] = set.colors[i];                                         \
+      clone.inited[i] = set.inited[i];                                         \
+    }                                                                          \
+    clone.hash_fn = hash_function;                                             \
+                                                                               \
+    clone;                                                                     \
+  })
+
 #define set_delete_fixup(set, node_idx)                                        \
   do {                                                                         \
     while (node_idx != set.root) {                                             \
@@ -215,6 +242,7 @@ typedef struct {
   })
 
 #define set_first(set) set_ult(set, left)
+
 #define set_free(set)                                                          \
   do {                                                                         \
     free(set.nodes);                                                           \
@@ -288,11 +316,12 @@ typedef struct {
 #define set_max_in_bnrach(set, node_idx)                                       \
   set_ult_in_branch(set, node_idx, right);
 #define set_min_in_branch(set, node_idx) set_ult_in_branch(set, node_idx, left);
+
 #define set_next(set, node_idx) set_seq(set, node_idx, right, left)
 #define set_next_in_branch(set, node_idx)                                      \
   set_seq_in_branch(set, node_idx, right, left);
-#define set_prev(set, node_idx) set_seq(set, node_idx, left, right)
 
+#define set_prev(set, node_idx) set_seq(set, node_idx, left, right)
 #define set_prev_in_branch(set, node_idx)                                      \
   set_seq_in_branch(set, node_idx, left, right);
 
@@ -303,7 +332,7 @@ typedef struct {
       start_trace(node->hash, trace_span("Fixing up node %lld"), node->hash);  \
       typeof(set.nodes) parent = set_get_node(set, node->parent);              \
       if (parent == NULL || set_is_red(set, node->parent) != NODE_COLOR_RED) { \
-        trace(trace_info("Parent is root or black, doing nothing"));           \
+        trace(trace_info("Parent is NULL or black, doing nothing"));           \
         end_trace();                                                           \
         break;                                                                 \
       }                                                                        \
@@ -324,6 +353,8 @@ typedef struct {
     end_trace();                                                               \
   } while (0)
 
+// TODO(2025-02-25, Max Bolotin): Minimal case to reproduce bug - 100, 200, 150,
+// 300, 250
 #define set_rb_insert_fixup_dir(set, node_idx, f_branch, f_direction)          \
   do {                                                                         \
     typeof(set.nodes) node = set_get_node(set, node_idx);                      \
@@ -335,26 +366,22 @@ typedef struct {
     typeof(set.nodes) grandparent = set_get_node(set, grandparent_idx);        \
     size_t uncle_idx = grandparent->f_branch;                                  \
                                                                                \
-    if (node_idx == grandparent_idx) {                                         \
-      trace(trace_err("Node has same IDX as its own grandparent (%zu), "       \
-                      "corruption detected\n"),                                \
-            node_idx);                                                         \
-      exit(1);                                                                 \
-    }                                                                          \
-                                                                               \
     if (set_is_red(set, uncle_idx) == NODE_COLOR_RED) {                        \
       start_trace(node->hash, trace_span("Uncle is red."));                    \
-      trace(trace_result("Setting parent to black."));                         \
-      trace(trace_result("Setting uncle to black."));                          \
-      trace(trace_result("Setting grandparent to red."));                      \
-      end_trace();                                                             \
                                                                                \
+      trace(trace_result("Setting parent to black."));                         \
       set_write_color(set, parent_idx, NODE_COLOR_BLACK);                      \
+      trace(trace_result("Setting uncle to black."));                          \
       set_write_color(set, uncle_idx, NODE_COLOR_BLACK);                       \
+      trace(trace_result("Setting grandparent to red."));                      \
       set_write_color(set, grandparent_idx, NODE_COLOR_RED);                   \
+                                                                               \
       node_idx = grandparent_idx;                                              \
+                                                                               \
+      end_trace();                                                             \
     } else {                                                                   \
       start_trace(node->hash, trace_span("Uncle is black."));                  \
+                                                                               \
       if (node == set_get_sibling(set, node, f_branch)) {                      \
         start_trace(                                                           \
             node->hash,                                                        \
@@ -370,15 +397,17 @@ typedef struct {
         set_trace_span(node->hash);                                            \
         start_trace(node->hash, trace_span("Rotating node to " #f_direction)); \
                                                                                \
+        set_rot(set, node_idx, f_branch, f_direction);                         \
+                                                                               \
         parent_idx = node->parent;                                             \
                                                                                \
         parent = set_get_node(set, parent_idx);                                \
                                                                                \
-        set_rot(set, node_idx, f_branch, f_direction);                         \
-                                                                               \
         end_trace();                                                           \
         end_trace();                                                           \
       }                                                                        \
+                                                                               \
+      assert(parent->parent != 0);                                             \
                                                                                \
       start_trace(                                                             \
           node->hash,                                                          \
@@ -388,21 +417,16 @@ typedef struct {
                                                                                \
       set_write_color(set, parent_idx, NODE_COLOR_BLACK);                      \
                                                                                \
-      if (parent->parent != 0) {                                               \
-        start_trace(node->hash, trace_span("Parent is not root node"));        \
-        trace(trace_result("Setting grandparent color to red"));               \
+      trace(trace_result("Setting grandparent color to red"));                 \
                                                                                \
-        set_write_color(set, parent->parent, NODE_COLOR_RED);                  \
+      set_write_color(set, parent->parent, NODE_COLOR_RED);                    \
                                                                                \
-        start_trace(set_get_node(set, parent->parent)->hash,                   \
-                    trace_span("Rotating grandparent of %lld to " #f_branch),  \
-                    node->hash);                                               \
+      start_trace(set_get_node(set, parent->parent)->hash,                     \
+                  trace_span("Rotating grandparent of %lld to " #f_branch),    \
+                  node->hash);                                                 \
                                                                                \
-        set_rot(set, parent->parent, f_direction, f_branch);                   \
+      set_rot(set, parent->parent, f_direction, f_branch);                     \
                                                                                \
-        end_trace();                                                           \
-        end_trace();                                                           \
-      }                                                                        \
       end_trace();                                                             \
       end_trace();                                                             \
     }                                                                          \
@@ -630,6 +654,7 @@ typedef struct {
   } while (0)
 
 #define set_write_color(set, addr, val) set_write_bitval(set, addr, colors, val)
+
 #define set_write_entry(set, addr, entry)                                      \
   do {                                                                         \
     size_t set_write_entry_idx = set_idx(addr);                                \
