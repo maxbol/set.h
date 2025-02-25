@@ -78,6 +78,11 @@ size_t set_draw_tree_node(set_node *nodes, uint8_t *colors, uint8_t *inited,
   size_t right_pad = 0;
 
   if (node.left != 0) {
+    if (node.right == 0) {
+      fprintf(stderr,
+              "Left child is non-zero but right child is zero for node %zu\n",
+              node_idx);
+    }
     assert(node.right != 0);
 
     size_t next_padding = set_draw_tree_node(
@@ -131,6 +136,12 @@ size_t set_draw_tree_node(set_node *nodes, uint8_t *colors, uint8_t *inited,
   }
 
   if (node.right != 0) {
+    if (node.left == 0) {
+      fprintf(stderr,
+              "Right child is non-zero but left child is zero for node %zu\n",
+              node_idx);
+    }
+    assert(node.left != 0);
     size_t next_padding = set_draw_tree_node(
         nodes, colors, inited, node.right, canvas, canvas_width, canvas_height,
         padding, line + 2, RIGHT);

@@ -6,7 +6,7 @@ Generic ordered set implementation using C.
 * Auto-balancing tree structure (Red & Black tree)
 * Cache-efficient memory layout (data types kept in singular, expanding buffers)
 * Bring your own hashing function 
-* Small (~ 500 LOC)
+* Small (~ 600 LOC)
 
 ## Why?
 
@@ -107,3 +107,42 @@ int written = set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_
 // Print the tree to stdout
 printf("%.*s", written, out_buf);
 ```
+
+## Tracing
+
+Include `trace.h` and `trace.c` in your build and build with `-DSET_TRACE_STEPS` in order to enable tracing for all operations in the set library. To flush all traces to stdout, use the included `flush_trace()` macro:
+
+```c
+for (uint32_t i = 0; i < 10; i++) {
+  set_add(set, i);
+  flush_trace();
+}
+```
+
+Alternatively, you can flush the trace to a string buffer by using `sflush_trace()`.
+
+```c
+size_t trace_out_len = 1024 * 1024;
+char trace_out[trace_out_len];
+int bytes_written = sflush_trace(trace_out, trace_out_len);
+```
+
+## Interactive demo harness
+
+The Makefile in this repo includes a live harness to interactively test the Red/Black tree. Build it by cloning the repo and running `make out/interactive_tester`.
+
+Then start it by running `out/interactive_tester`.
+
+The demo harness is using a set of uint32_t.
+
+Available commands:
+- `add [int]` - Add an integer entry to the set
+- `remove [int]` - Remove integer entry [int] from the set
+- `clear` - Empty set
+- `print [line],[col]` - Print all characters (including control characters) from the ascii tree canvas at cursor position [line],[col].
+- `back` - Rewind history by 1 step (up to a max of 5 steps from any given state).
+- `next` - Forward history by 1 step.
+
+## Unit tests
+
+To run all unit tests in the repo, clone it and run `make test`.
