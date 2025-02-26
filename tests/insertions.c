@@ -191,9 +191,9 @@ void test_add_third_member_line(void) {
   TEST_ASSERT_EQUAL(set_has(set, 6), false);
   TEST_ASSERT_EQUAL(set_has(set, 7), false);
 
-  TEST_ASSERT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      1);
+  TEST_ASSERT_EQUAL(set_node_blackheight(set.nodes, set.colors, set.inited,
+                                         set.root, true, true),
+                    1);
 
   set_free(set);
 }
@@ -236,9 +236,9 @@ void test_add_third_member_triangle(void) {
   TEST_ASSERT_EQUAL(set_is_inited(set, right.right), false);
   TEST_ASSERT_EQUAL(right_color, NODE_COLOR_RED);
 
-  TEST_ASSERT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      1);
+  TEST_ASSERT_EQUAL(set_node_blackheight(set.nodes, set.colors, set.inited,
+                                         set.root, true, true),
+                    1);
 
   set_free(set);
 }
@@ -256,9 +256,9 @@ void test_larger_range_add(void) {
   set_add(set, 8);
   set_add(set, 9);
 
-  TEST_ASSERT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      2);
+  TEST_ASSERT_EQUAL(set_node_blackheight(set.nodes, set.colors, set.inited,
+                                         set.root, true, true),
+                    2);
 
   TEST_ASSERT_EQUAL(set_get_entry(set, set.root), 5);
 
@@ -276,9 +276,9 @@ void test_insert_sizeidentity(void) {
   set_add(set, 10);
   set_add(set, 6);
 
-  TEST_ASSERT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      2);
+  TEST_ASSERT_EQUAL(set_node_blackheight(set.nodes, set.colors, set.inited,
+                                         set.root, true, true),
+                    2);
 
   size_t size = set_size(set);
   TEST_ASSERT_EQUAL(4, size);

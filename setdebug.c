@@ -164,7 +164,8 @@ size_t set_draw_tree_node(set_node *nodes, uint8_t *colors, uint8_t *inited,
   return padding;
 }
 size_t set_node_blackheight(set_node *nodes, uint8_t *colors, uint8_t *inited,
-                            size_t start_node, bool is_start) {
+                            size_t start_node, bool is_start,
+                            bool assert_uniform_height) {
   size_t node_idx = set_idx(start_node);
   set_node node = nodes[node_idx];
   size_t counter = 0;
@@ -183,10 +184,10 @@ size_t set_node_blackheight(set_node *nodes, uint8_t *colors, uint8_t *inited,
     assert(node.left != 0);
     assert(node.right != 0);
 
-    size_t left_blackheight =
-        set_node_blackheight(nodes, colors, inited, node.left, false);
-    size_t right_blackheight =
-        set_node_blackheight(nodes, colors, inited, node.right, false);
+    size_t left_blackheight = set_node_blackheight(
+        nodes, colors, inited, node.left, false, assert_uniform_height);
+    size_t right_blackheight = set_node_blackheight(
+        nodes, colors, inited, node.right, false, assert_uniform_height);
 
     if (left_blackheight != right_blackheight) {
       fprintf(stderr,
@@ -194,7 +195,9 @@ size_t set_node_blackheight(set_node *nodes, uint8_t *colors, uint8_t *inited,
               "%zu (%lld) - left %zu, right %zu\n",
               node_idx, node.hash, left_blackheight, right_blackheight);
     }
-    // assert(left_blackheight == right_blackheight);
+    if (assert_uniform_height) {
+      assert(left_blackheight == right_blackheight);
+    }
 
     counter += left_blackheight;
   }

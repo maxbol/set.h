@@ -10,7 +10,7 @@
 extern void setUp(void);
 extern void tearDown(void);
 extern void test_delete_only_member(void);
-extern void test_draw_tree(void);
+extern void test_delete_root_with_two_children(void);
 
 
 /*=======Mock Management=====*/
@@ -73,7 +73,7 @@ int main(void)
 {
   UnityBegin("tests/deletions.c");
   run_test(test_delete_only_member, "test_delete_only_member", 13);
-  run_test(test_draw_tree, "test_draw_tree", 24);
+  run_test(test_delete_root_with_two_children, "test_delete_root_with_two_children", 24);
 
   return UNITY_END();
 }

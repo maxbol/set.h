@@ -190,8 +190,8 @@ int main(void) {
 
     printf("%.*s", trace_hist_item.len, trace_hist_item.buf);
 
-    size_t blackheight =
-        set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true);
+    size_t blackheight = set_node_blackheight(set.nodes, set.colors, set.inited,
+                                              set.root, true, false);
 
     printf("Current blackheight: %zu\n", blackheight);
 

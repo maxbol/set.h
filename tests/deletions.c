@@ -21,121 +21,37 @@ void test_delete_only_member(void) {
   TEST_ASSERT_EQUAL(set_is_inited(set, set.root), 0);
 }
 
-void test_draw_tree(void) {
+void test_delete_root_with_two_children(void) {
   set_uint32_t set;
   set_init(set, set_uint32_hash_fn);
 
+  set_add(set, 1);
   set_add(set, 2);
   set_add(set, 3);
-  set_add(set, 4);
-  set_add(set, 5);
-  set_add(set, 6);
-  set_add(set, 7);
-  set_add(set, 18);
-  set_add(set, 19);
 
-  size_t canvas_width = 60;
-  size_t canvas_height = 20;
+  TEST_ASSERT_EQUAL(set_get_entry(set, set.root), 2);
 
-  char out_buf[canvas_width * canvas_height * 64];
-  int written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
+  set_remove(set, 2);
 
-  printf("%.*s", written, out_buf);
+  TEST_ASSERT_EQUAL(set_size(set), 2);
+  TEST_ASSERT_EQUAL(set_node_blackheight(set.nodes, set.colors, set.inited,
+                                         set.root, true, true),
+                    1);
+}
 
-  set_remove(set, 7);
+void test_delete_red_parent_of_two_black_childless(void) {
+  set_uint32_t set;
+  set_init(set, set_uint32_hash_fn);
 
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
+  for (uint32_t i = 1; i == 6; i++) {
+    set_add(set, i);
+  }
 
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
+  set_remove(set, 6);
+  set_remove(set, 4);
 
-  printf("%.*s", written, out_buf);
-
-  set_add(set, 7);
-
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
-
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
-
-  printf("%.*s", written, out_buf);
-
-  set_add(set, 8);
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
-
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
-
-  printf("%.*s", written, out_buf);
-  set_add(set, 9);
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
-
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
-
-  printf("%.*s", written, out_buf);
-  set_add(set, 10);
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
-
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
-
-  printf("%.*s", written, out_buf);
-  set_add(set, 11);
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
-
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
-
-  printf("%.*s", written, out_buf);
-  set_add(set, 12);
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
-
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
-
-  printf("%.*s", written, out_buf);
-  set_add(set, 13);
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
-
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
-
-  printf("%.*s", written, out_buf);
-  set_add(set, 14);
-  TEST_ASSERT_NOT_EQUAL(
-      set_node_blackheight(set.nodes, set.colors, set.inited, set.root, true),
-      0);
-
-  written =
-      set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width,
-                    canvas_height, out_buf, canvas_width * canvas_height * 64);
-
-  printf("%.*s", written, out_buf);
+  TEST_ASSERT_EQUAL(set_size(set), 4);
+  TEST_ASSERT_EQUAL(set_node_blackheight(set.nodes, set.colors, set.inited,
+                                         set.root, true, true),
+                    2);
 }
