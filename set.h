@@ -166,15 +166,20 @@ typedef struct {
   do {                                                                         \
     while (node_idx != set.root) {                                             \
       typeof(set.nodes) node = set_get_node(set, node_idx);                    \
+      start_trace(node->hash, trace_span("Fixing up %lld"), node->hash);       \
       bool color = set_is_red(set, node_idx);                                  \
       if (color != NODE_COLOR_BLACK) {                                         \
+        trace(trace_info("Node is red, stop traversing"));                     \
+        end_trace();                                                           \
         break;                                                                 \
       }                                                                        \
       if (node == set_get_sibling(set, node, left)) {                          \
+        trace(trace_info("Node is in parents left subtree"));                  \
         set_delete_fixup_dir(set, node_idx, right, left);                      \
       } else {                                                                 \
-        set_delete_fixup_dir(set, node_idx, right, left);                      \
+        set_delete_fixup_dir(set, node_idx, left, right);                      \
       }                                                                        \
+      end_trace();                                                             \
     }                                                                          \
     set_write_color(set, node_idx, NODE_COLOR_BLACK);                          \
   } while (0)
@@ -353,8 +358,6 @@ typedef struct {
     end_trace();                                                               \
   } while (0)
 
-// TODO(2025-02-25, Max Bolotin): Minimal case to reproduce bug - 100, 200, 150,
-// 300, 250
 #define set_rb_insert_fixup_dir(set, node_idx, f_branch, f_direction)          \
   do {                                                                         \
     typeof(set.nodes) node = set_get_node(set, node_idx);                      \
@@ -446,13 +449,18 @@ typedef struct {
     (set.f_member[byte_idx] & mask) != 0;                                      \
   })
 
+// TODO(2025-02-26, Max Bolotin): To reproduce - add, 100, 200, 300, 400, 500
+// 600, remove 600, 400
 #define set_remove(set, entry)                                                 \
   do {                                                                         \
     uint64_t hash = set.hash_fn(entry);                                        \
+    start_trace(hash, trace_span("Removing entry %lld"), hash);                \
     size_t node_idx = set_find_node(set, hash);                                \
     typeof(set.nodes) node = set_get_node(set, node_idx);                      \
                                                                                \
     if (node->hash != hash) {                                                  \
+      trace(trace_info("Entry does not exist in tree"));                       \
+      end_trace();                                                             \
       break;                                                                   \
     }                                                                          \
                                                                                \
@@ -462,39 +470,100 @@ typedef struct {
     bool color_sample_is_red = set_is_red(set, node_idx);                      \
                                                                                \
     if (!set_is_inited(set, node->left)) {                                     \
+      trace(trace_info(                                                        \
+          "Left child is NIL node or both children are NIL nodes"));           \
+      typeof(set.nodes) right = set_get_node(set, node->right);                \
+      trace(trace_result("Setting fixup target to right child: %lld"),         \
+            right->hash);                                                      \
       fixup_target_idx = node->right;                                          \
+      start_trace(node_idx,                                                    \
+                  trace_span("Transplanting right child (node %lld) here"),    \
+                  right->hash);                                                \
       set_transplant(set, node_idx, node->right);                              \
+      end_trace();                                                             \
     } else if (!set_is_inited(set, node->right)) {                             \
+      trace(trace_info("Only right child is NIL node"));                       \
+      typeof(set.nodes) left = set_get_node(set, node->left);                  \
+      trace(trace_result("Setting fixup target to left child: %lld"),          \
+            left->hash);                                                       \
       fixup_target_idx = node->left;                                           \
+      start_trace(node_idx,                                                    \
+                  trace_span("Transplanting left child (node %lld) here"),     \
+                  left->hash);                                                 \
       set_transplant(set, node_idx, node->left);                               \
+      end_trace();                                                             \
     } else {                                                                   \
+      trace(trace_info("Neither of children are NIL nodes"));                  \
       assert(set_is_inited(set, node->right));                                 \
       color_sample_idx = set_min_in_branch(set, node->right);                  \
       typeof(set.nodes) color_sample = set_get_node(set, color_sample_idx);    \
       color_sample_is_red = set_is_red(set, color_sample_idx);                 \
+      trace(trace_info("Found color sample as minimum of right child: %lld - " \
+                       "color is %s"),                                         \
+            color_sample->hash, color_sample_is_red ? "red" : "black");        \
       fixup_target_idx = color_sample->right;                                  \
+      typeof(set.nodes) fixup_target = set_get_node(set, fixup_target_idx);    \
+      trace(trace_result(                                                      \
+                "Setting fixup target to right child of color sample: %lld"),  \
+            fixup_target->hash);                                               \
                                                                                \
       if (color_sample_idx == node->right) {                                   \
-        set_get_node(set, fixup_target_idx)->parent = color_sample_idx;        \
+        trace(trace_info("Color sample is right child of node"));              \
+        trace(                                                                 \
+            trace_result(                                                      \
+                "Setting fixup target (%lld) parent to color sample (%lld)"),  \
+            fixup_target->hash, color_sample->hash);                           \
+        fixup_target->parent = color_sample_idx;                               \
       } else {                                                                 \
+        trace(trace_info("Color sample is not right child of node"));          \
+        start_trace(color_sample->hash,                                        \
+                    trace_span("Transplanting %lld to color sample (%lld)"),   \
+                    fixup_target->hash, color_sample->hash);                   \
         set_transplant(set, color_sample_idx, fixup_target_idx);               \
+        end_trace();                                                           \
+        trace(trace_result(                                                    \
+                  "2-way binding right child of color sample (%lld) to "       \
+                  "right child of node (%lld)"),                               \
+              color_sample->hash, node->hash);                                 \
         color_sample->right = node->right;                                     \
         set_get_node(set, color_sample->right)->parent = color_sample_idx;     \
       }                                                                        \
                                                                                \
+      start_trace(                                                             \
+          node->hash,                                                          \
+          trace_span("Transplanting color sample (%lld) to node (%lld)"),      \
+          color_sample->hash, node->hash);                                     \
       set_transplant(set, node_idx, color_sample_idx);                         \
+      end_trace();                                                             \
                                                                                \
+      trace(trace_result(                                                      \
+                "2-way binding left child of color sample (%lld) to left "     \
+                "child of node (%lld)"),                                       \
+            color_sample->hash, node->hash);                                   \
       color_sample->left = node->left;                                         \
       set_get_node(set, color_sample->left)->parent = color_sample_idx;        \
+      trace(trace_result("Setting color of color sample (%lld) to %s"),        \
+            color_sample->hash, set_is_red(set, node_idx) ? "red" : "black");  \
       set_write_color(set, color_sample_idx, set_is_red(set, node_idx));       \
     }                                                                          \
                                                                                \
     if (!color_sample_is_red) {                                                \
+      trace(trace_info("Original color of color sample was black, fixing up "  \
+                       "fix up target"));                                      \
+      start_trace(fixup_target_idx, trace_span("Fixing up fixup target"));     \
       set_delete_fixup(set, fixup_target_idx);                                 \
+      end_trace();                                                             \
+    } else {                                                                   \
+      trace(trace_info(                                                        \
+          "Original color of color sample was red, no fixup required"));       \
     }                                                                          \
                                                                                \
+    trace(trace_result("Freeing node"));                                       \
     set_free_node(set, node_idx);                                              \
+    trace(trace_result("Clearing entry"));                                     \
     set_clear_entry(set, node_idx);                                            \
+                                                                               \
+    end_trace();                                                               \
   } while (0)
 
 #define set_rot(set, node_idx, f_branch, f_direction)                          \
