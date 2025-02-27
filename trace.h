@@ -1,6 +1,7 @@
 #ifndef TRACE_H
 #define TRACE_H
 
+#include <stdbool.h>
 #include <stdlib.h>
 
 typedef struct {
@@ -10,7 +11,10 @@ typedef struct {
   uint64_t span_ids[1024];
 } trace_ctx_t;
 
-trace_ctx_t *get_trace_ctx();
+extern trace_ctx_t *get_trace_ctx();
+extern void enable_tracing();
+extern void disable_tracing();
+extern bool tracing_enabled;
 
 #define trace_printf(...)                                                      \
   get_trace_ctx()->cursor +=                                                   \
@@ -18,6 +22,8 @@ trace_ctx_t *get_trace_ctx();
 
 #define trace_indent(indent, ...)                                              \
   do {                                                                         \
+    if (!tracing_enabled)                                                      \
+      break;                                                                   \
     for (int i = 0; i < indent; i++) {                                         \
       trace_printf("  ");                                                      \
     }                                                                          \
@@ -31,23 +37,31 @@ trace_ctx_t *get_trace_ctx();
 
 #define start_trace(span_id, ...)                                              \
   do {                                                                         \
+    if (!tracing_enabled)                                                      \
+      break;                                                                   \
     get_trace_ctx()->span_ids[++get_trace_ctx()->active_span] = span_id;       \
     trace_indent(get_trace_ctx()->active_span - 1, __VA_ARGS__);               \
   } while (0)
 
 #define end_trace()                                                            \
   do {                                                                         \
+    if (!tracing_enabled)                                                      \
+      break;                                                                   \
     get_trace_ctx()->active_span--;                                            \
   } while (0)
 
 #define flush_trace()                                                          \
   do {                                                                         \
+    if (!tracing_enabled)                                                      \
+      break;                                                                   \
     printf("%.*s", (int)get_trace_ctx()->cursor, get_trace_ctx()->out);        \
     get_trace_ctx()->cursor = 0;                                               \
   } while (0)
 
 #define sflush_trace(v_out, v_out_len)                                         \
   ({                                                                           \
+    if (!tracing_enabled)                                                      \
+      break;                                                                   \
     int written =                                                              \
         snprintf(v_out, v_out_len, "%.*s", (int)get_trace_ctx()->cursor,       \
                  get_trace_ctx()->out);                                        \
@@ -57,6 +71,8 @@ trace_ctx_t *get_trace_ctx();
 
 #define set_trace_span(span_id)                                                \
   do {                                                                         \
+    if (!tracing_enabled)                                                      \
+      break;                                                                   \
     get_trace_ctx()->span_ids[get_trace_ctx()->active_span] = span_id;         \
   } while (0)
 

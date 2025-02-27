@@ -4,6 +4,7 @@
 #include "unity.h"
 #include "set.h"
 #include "setdebug.h"
+#include "trace.h"
 #include <stdint.h>
 
 /*=======External Functions This Runner Calls=====*/
@@ -79,15 +80,15 @@ static void run_test(UnityTestFunction func, const char* name, UNITY_LINE_TYPE l
 int main(void)
 {
   UnityBegin("tests/insertions.c");
-  run_test(test_addr_idx_conversions, "test_addr_idx_conversions", 13);
-  run_test(test_initing_set, "test_initing_set", 23);
-  run_test(test_add_first_member, "test_add_first_member", 42);
-  run_test(test_add_second_larger_member, "test_add_second_larger_member", 71);
-  run_test(test_add_second_smaller_member, "test_add_second_smaller_member", 115);
-  run_test(test_add_third_member_line, "test_add_third_member_line", 156);
-  run_test(test_add_third_member_triangle, "test_add_third_member_triangle", 201);
-  run_test(test_larger_range_add, "test_larger_range_add", 246);
-  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 268);
+  run_test(test_addr_idx_conversions, "test_addr_idx_conversions", 16);
+  run_test(test_initing_set, "test_initing_set", 26);
+  run_test(test_add_first_member, "test_add_first_member", 45);
+  run_test(test_add_second_larger_member, "test_add_second_larger_member", 74);
+  run_test(test_add_second_smaller_member, "test_add_second_smaller_member", 118);
+  run_test(test_add_third_member_line, "test_add_third_member_line", 159);
+  run_test(test_add_third_member_triangle, "test_add_third_member_triangle", 204);
+  run_test(test_larger_range_add, "test_larger_range_add", 249);
+  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 271);
 
   return UNITY_END();
 }

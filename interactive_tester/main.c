@@ -4,9 +4,10 @@
 #include <locale.h>
 #include <stdlib.h>
 
-typedef set_type(uint32_t) set_uint32_t;
+typedef set_type(uint32_t) set_t;
 
-uint64_t set_hash_uint32(uint32_t value) { return value; }
+uint64_t hash_fn(uint32_t value) { return 1; }
+bool equals_fn(uint32_t a, uint32_t b) { return a == b; }
 
 typedef enum {
   Unknown = 0,
@@ -159,8 +160,8 @@ char *read_command(char *cmd_string, Command *cmd, uint32_t *entry,
 }
 
 int main(void) {
-  set_uint32_t set;
-  set_init(set, set_hash_uint32);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
 
   size_t canvas_width = 120;
   size_t canvas_height = 15;
@@ -172,7 +173,7 @@ int main(void) {
   // Clear screen and reset cursor
   printf("\e[2J\e[H");
 
-  set_uint32_t history[5];
+  set_t history[5];
   TraceHistItem trace_hist[5];
   size_t history_idx = 0;
   size_t rewind_amount = 0;
@@ -185,7 +186,7 @@ int main(void) {
 
     size_t history_cursor = (history_idx - rewind_amount) % 5;
 
-    set_uint32_t set = set_clone(history[history_cursor]);
+    set_t set = set_clone(history[history_cursor]);
     TraceHistItem trace_hist_item = trace_hist[history_cursor];
 
     printf("%.*s", trace_hist_item.len, trace_hist_item.buf);
