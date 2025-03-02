@@ -1,11 +1,14 @@
-#include "set.h"
-#include "setdebug.h"
-#include "unity.h"
 #include <stdint.h>
 
-uint64_t set_uint32_hash_fn(uint32_t value) { return value; }
+#include "set.h"
+#include "setdebug.h"
+#include "trace.h"
+#include "unity.h"
 
-typedef set_type(uint32_t) set_uint32_t;
+uint64_t hash_fn(uint32_t value) { return value; }
+bool equals_fn(uint32_t a, uint32_t b) { return a == b; }
+
+typedef set_type(uint32_t) set_t;
 
 void setUp(void) {}
 void tearDown(void) {}
@@ -21,8 +24,8 @@ void test_addr_idx_conversions(void) {
 }
 
 void test_initing_set(void) {
-  set_uint32_t set;
-  set_init(set, set_uint32_hash_fn);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
 
   TEST_ASSERT_EQUAL(1, set.root);
 
@@ -40,8 +43,8 @@ void test_initing_set(void) {
 }
 
 void test_add_first_member(void) {
-  set_uint32_t set;
-  set_init(set, set_uint32_hash_fn);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
   set_add(set, 2);
 
   TEST_ASSERT_EQUAL(set.root, 1);
@@ -49,9 +52,7 @@ void test_add_first_member(void) {
   typeof(*set.nodes) root_node = *set_get_node(set, set.root);
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
   bool root_color = set_is_red(set, set.root);
-  TEST_ASSERT_EQUAL(root_node.hash, set_uint32_hash_fn(2));
-  // TODO(2025-02-09, Max Bolotin): Parent is non-nil here, and shouldn't be.
-  // Fix it!!
+  TEST_ASSERT_EQUAL(root_node.hash, hash_fn(2));
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
   TEST_ASSERT_EQUAL(root_entry, 2);
   TEST_ASSERT_EQUAL(root_color, 0);
@@ -69,8 +70,8 @@ void test_add_first_member(void) {
 }
 
 void test_add_second_larger_member(void) {
-  set_uint32_t set;
-  set_init(set, set_uint32_hash_fn);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
 
   set_add(set, 2);
   set_add(set, 6);
@@ -97,7 +98,7 @@ void test_add_second_larger_member(void) {
   typeof(*set.entries) right_entry = set_get_entry(set, root_node.right);
   bool right_color = set_is_red(set, root_node.right);
 
-  TEST_ASSERT_EQUAL(right.hash, set_uint32_hash_fn(6));
+  TEST_ASSERT_EQUAL(right.hash, hash_fn(6));
   TEST_ASSERT_NOT_EQUAL(set_idx(right.left), 0);
   TEST_ASSERT_NOT_EQUAL(set_idx(right.right), 0);
   TEST_ASSERT_EQUAL(right_entry, 6);
@@ -113,8 +114,8 @@ void test_add_second_larger_member(void) {
 }
 
 void test_add_second_smaller_member(void) {
-  set_uint32_t set;
-  set_init(set, set_uint32_hash_fn);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
 
   set_add(set, 2);
   set_add(set, 1);
@@ -133,7 +134,7 @@ void test_add_second_smaller_member(void) {
   typeof(*set.nodes) left = *set_get_node(set, root_node.left);
   typeof(*set.entries) left_entry = set_get_entry(set, root_node.left);
   bool left_color = set_is_red(set, root_node.left);
-  TEST_ASSERT_EQUAL(left.hash, set_uint32_hash_fn(1));
+  TEST_ASSERT_EQUAL(left.hash, hash_fn(1));
   TEST_ASSERT_NOT_EQUAL(left.left, 0);
   TEST_ASSERT_NOT_EQUAL(left.right, 0);
   TEST_ASSERT_EQUAL(left_entry, 1);
@@ -154,8 +155,8 @@ void test_add_second_smaller_member(void) {
 }
 
 void test_add_third_member_line(void) {
-  set_uint32_t set;
-  set_init(set, set_uint32_hash_fn);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
 
   set_add(set, 2);
   set_add(set, 3);
@@ -199,8 +200,8 @@ void test_add_third_member_line(void) {
 }
 
 void test_add_third_member_triangle(void) {
-  set_uint32_t set;
-  set_init(set, set_uint32_hash_fn);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
 
   set_add(set, 2);
   set_add(set, 5);
@@ -244,8 +245,8 @@ void test_add_third_member_triangle(void) {
 }
 
 void test_larger_range_add(void) {
-  set_uint32_t set;
-  set_init(set, set_uint32_hash_fn);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
 
   set_add(set, 2);
   set_add(set, 3);
@@ -266,9 +267,9 @@ void test_larger_range_add(void) {
 }
 
 void test_insert_sizeidentity(void) {
-  set_uint32_t set;
+  set_t set;
 
-  set_init(set, set_uint32_hash_fn);
+  set_init(set, hash_fn, equals_fn);
 
   set_add(set, 2);
   set_add(set, 6);

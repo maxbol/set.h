@@ -11,6 +11,7 @@ extern void setUp(void);
 extern void tearDown(void);
 extern void test_delete_only_member(void);
 extern void test_delete_root_with_two_children(void);
+extern void test_delete_red_parent_of_two_black_childless(void);
 
 
 /*=======Mock Management=====*/
@@ -72,8 +73,9 @@ static void run_test(UnityTestFunction func, const char* name, UNITY_LINE_TYPE l
 int main(void)
 {
   UnityBegin("tests/deletions.c");
-  run_test(test_delete_only_member, "test_delete_only_member", 13);
-  run_test(test_delete_root_with_two_children, "test_delete_root_with_two_children", 24);
+  run_test(test_delete_only_member, "test_delete_only_member", 14);
+  run_test(test_delete_root_with_two_children, "test_delete_root_with_two_children", 25);
+  run_test(test_delete_red_parent_of_two_black_childless, "test_delete_red_parent_of_two_black_childless", 42);
 
   return UNITY_END();
 }

@@ -16,7 +16,7 @@ char *set_draw_alloc_canvas(size_t canvas_width, size_t canvas_height) {
   return canvas;
 }
 
-int set_draw_tree(set_node *nodes, uint8_t *colors, uint8_t *inited,
+int set_draw_tree(set_node_t *nodes, uint8_t *colors, uint8_t *inited,
                   size_t start_node, size_t canvas_width, size_t canvas_height,
                   char *out, size_t out_len) {
 
@@ -58,14 +58,14 @@ int set_draw_tree_canvas(size_t canvas_width, size_t canvas_height,
   return offset;
 }
 
-size_t set_draw_tree_node(set_node *nodes, uint8_t *colors, uint8_t *inited,
+size_t set_draw_tree_node(set_node_t *nodes, uint8_t *colors, uint8_t *inited,
                           size_t start_node, char *canvas, size_t canvas_width,
                           size_t canvas_height, size_t padding, size_t line,
                           set_tree_line_alignment_t alignment) {
   assert(line < canvas_height);
 
   size_t node_idx = set_idx(start_node);
-  set_node node = nodes[node_idx];
+  set_node_t node = nodes[node_idx];
 
   size_t byte_idx = floor((float)node_idx / 8);
   size_t bit_idx = node_idx % 8;
@@ -163,11 +163,11 @@ size_t set_draw_tree_node(set_node *nodes, uint8_t *colors, uint8_t *inited,
 
   return padding;
 }
-size_t set_node_blackheight(set_node *nodes, uint8_t *colors, uint8_t *inited,
+size_t set_node_blackheight(set_node_t *nodes, uint8_t *colors, uint8_t *inited,
                             size_t start_node, bool is_start,
                             bool assert_uniform_height) {
   size_t node_idx = set_idx(start_node);
-  set_node node = nodes[node_idx];
+  set_node_t node = nodes[node_idx];
   size_t counter = 0;
 
   size_t byte_idx = floor((float)node_idx / 8);
