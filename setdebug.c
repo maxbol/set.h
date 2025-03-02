@@ -109,7 +109,9 @@ size_t set_draw_tree_node(set_node_t *nodes, uint8_t *colors, uint8_t *inited,
   int data_len;
   if (is_inited) {
     char data_out[8];
-    data_len = snprintf(data_out, 8, "%lld", node.hash);
+    data_len = snprintf(data_out, 8, "%llu", node.hash);
+    bool overflows = data_len > 8;
+    data_len = overflows ? 8 : data_len;
 
     for (int i = 0; i < data_len; i++) {
       size_t cell = ((canvas_width * line) + padding) * CELL_SIZE;
@@ -121,7 +123,11 @@ size_t set_draw_tree_node(set_node_t *nodes, uint8_t *colors, uint8_t *inited,
           offset += sprintf(&canvas[cell + offset], "\e[1m");
         }
       }
-      canvas[cell + (offset++)] = data_out[i];
+      if (i >= 5 && overflows) {
+        canvas[cell + (offset++)] = '.';
+      } else {
+        canvas[cell + (offset++)] = data_out[i];
+      }
       if (i == data_len - 1) {
         offset += sprintf(&canvas[cell + offset], "\e[0m");
       }
