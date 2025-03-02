@@ -9,8 +9,9 @@ test: build_test
 	./out/test/test_insertions
 	./out/test/test_deletions
 	./out/test/test_hash_collisions
+	./out/test/test_string_set
 
-build_test: out/test/test_insertions out/test/test_deletions out/test/test_hash_collisions
+build_test: out/test/test_insertions out/test/test_deletions out/test/test_hash_collisions out/test/test_string_set
 
 clean: 
 	rm -rf out/*
