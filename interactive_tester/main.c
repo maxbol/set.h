@@ -6,7 +6,7 @@
 
 typedef set_type(uint32_t) set_t;
 
-uint64_t hash_fn(uint32_t value) { return 1; }
+uint64_t hash_fn(uint32_t value) { return value; }
 bool equals_fn(uint32_t a, uint32_t b) { return a == b; }
 
 typedef enum {

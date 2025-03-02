@@ -53,8 +53,6 @@ void test_add_first_member(void) {
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
   bool root_color = set_is_red(set, set.root);
   TEST_ASSERT_EQUAL(root_node.hash, hash_fn(2));
-  // TODO(2025-02-09, Max Bolotin): Parent is non-nil here, and shouldn't be.
-  // Fix it!!
   TEST_ASSERT_EQUAL(root_node.parent, IDX_NIL);
   TEST_ASSERT_EQUAL(root_entry, 2);
   TEST_ASSERT_EQUAL(root_color, 0);

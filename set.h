@@ -42,12 +42,20 @@
       .right = IDX_NIL,                                                        \
   };
 
+#define COLLISION_NIL                                                          \
+  { .next = 0, .prev = 0 }
+
 typedef struct {
   size_t left;
   size_t right;
   size_t parent;
   uint64_t hash;
 } set_node_t;
+
+typedef struct {
+  size_t next;
+  size_t prev;
+} set_collision_t;
 
 #define SET_ALLOC_CHUNK 512
 
@@ -64,58 +72,31 @@ typedef struct {
     set_node_t *leaf = set_get_node(set, leaf_idx);                            \
                                                                                \
     if (set_is_inited(set, leaf_idx) != 0) {                                   \
-      bool is_duplicate = false;                                               \
+      size_t collision_idx = set_find_collision(set, leaf_idx, (entry_var));   \
                                                                                \
-      typeof(*set.entries) entry = set_get_entry(set, leaf_idx);               \
-                                                                               \
-      if (set.equals_fn(entry, (entry_var))) {                                 \
-        is_duplicate = true;                                                   \
-      } else {                                                                 \
-        leaf_idx = leaf->right;                                                \
-        leaf = set_get_node(set, leaf_idx);                                    \
-        bool is_dupecheck_passed = false;                                      \
-                                                                               \
-        if (leaf->hash == hash) {                                              \
-          entry = set_get_entry(set, leaf_idx);                                \
-          if (entry == (entry_var)) {                                          \
-            is_duplicate = true;                                               \
-          }                                                                    \
-        } else {                                                               \
-          is_dupecheck_passed = true;                                          \
-        }                                                                      \
-                                                                               \
-        if (is_duplicate == false) {                                           \
-          while (set_is_valid_addr(leaf->left)) {                              \
-            leaf_idx = leaf->left;                                             \
-            leaf = set_get_node(set, leaf_idx);                                \
-                                                                               \
-            if (is_dupecheck_passed == true) {                                 \
-              continue;                                                        \
-            }                                                                  \
-                                                                               \
-            if (leaf->hash == hash) {                                          \
-              entry = set_get_entry(set, leaf_idx);                            \
-              if (entry == (entry_var)) {                                      \
-                is_duplicate = true;                                           \
-                break;                                                         \
-              }                                                                \
-            } else {                                                           \
-              is_dupecheck_passed = true;                                      \
-            }                                                                  \
-          }                                                                    \
-        }                                                                      \
-      }                                                                        \
-                                                                               \
-      if (is_duplicate) {                                                      \
+      if (set_is_valid_addr(collision_idx)) {                                  \
         trace(trace_info("Entry already exists in set"));                      \
         end_trace();                                                           \
         break;                                                                 \
-      } else {                                                                 \
-        trace(trace_info("Collision was detected, alloted a new leaf node "    \
-                         "with addr %zu, hash %lld, left %zu, right %zu, "     \
-                         "parent %zu\n"),                                      \
-              leaf_idx, leaf->hash, leaf->left, leaf->right, leaf->parent);    \
       }                                                                        \
+                                                                               \
+      set_collision_t *collision = set_get_collision(set, leaf_idx);           \
+                                                                               \
+      /* Fast-forward to last collision */                                     \
+      while (set_is_valid_addr(collision->next)) {                             \
+        leaf_idx = collision->next;                                            \
+        collision = set_get_collision(set, leaf_idx);                          \
+      }                                                                        \
+      size_t next;                                                             \
+      size_t n = set_get_node(set, leaf_idx)->right;                           \
+      while (set_is_valid_addr(n)) {                                           \
+        next = n;                                                              \
+        n = set_get_node(set, next)->left;                                     \
+      }                                                                        \
+      collision->next = next;                                                  \
+      set_get_collision(set, next)->prev = leaf_idx;                           \
+      leaf_idx = next;                                                         \
+      leaf = set_get_node(set, leaf_idx);                                      \
     }                                                                          \
                                                                                \
     size_t left_idx = set_alloc_new_node(set);                                 \
@@ -154,6 +135,7 @@ typedef struct {
         found_free = true;                                                     \
         set.free_list[byte_idx] ^= bmask;                                      \
         set.nodes[i] = (set_node_t)NODE_NIL;                                   \
+        set.collisions[i] = (set_collision_t)COLLISION_NIL;                    \
         memset(&set.entries[i], 0x00, sizeof(typeof(*set.entries)));           \
         retval = set_addr(i);                                                  \
         break;                                                                 \
@@ -173,6 +155,7 @@ typedef struct {
       memset(&set.colors[i / 8], 0x00, (set.capacity / 8) - (i / 8));          \
       memset(&set.inited[i / 8], 0x00, (set.capacity / 8) - (i / 8));          \
       set.nodes[i] = (set_node_t)NODE_NIL;                                     \
+      set.collisions[i] = (set_collision_t)COLLISION_NIL;                      \
       memset(&set.entries[i], 0x00, sizeof(typeof(*set.entries)));             \
       set.free_list[i] = 0xff >> 1;                                            \
     }                                                                          \
@@ -195,21 +178,32 @@ typedef struct {
                                                                                \
     clone.capacity = set.capacity;                                             \
     clone.root = set.root;                                                     \
-    clone.nodes = malloc(sizeof(typeof(*clone.nodes)) * set.capacity);         \
+    clone.nodes = malloc(sizeof(set_node_t) * set.capacity);                   \
+    clone.collisions = malloc(sizeof(set_collision_t) * set.capacity);         \
     clone.entries = malloc(sizeof(typeof(*clone.entries)) * set.capacity);     \
     clone.free_list = malloc(clone.capacity / 8);                              \
     clone.colors = malloc(clone.capacity / 8);                                 \
     clone.inited = malloc(clone.capacity / 8);                                 \
                                                                                \
-    for (size_t i = 0; i < clone.capacity; i++) {                              \
-      clone.nodes[i] = set.nodes[i];                                           \
-      clone.entries[i] = set.entries[i];                                       \
-    }                                                                          \
+    memset(clone.free_list, 0xff, clone.capacity / 8);                         \
+                                                                               \
     for (size_t i = 0; i < clone.capacity / 8; i++) {                          \
+      if (set.free_list[i] == 0xff) {                                          \
+        continue;                                                              \
+      }                                                                        \
+                                                                               \
       clone.free_list[i] = set.free_list[i];                                   \
       clone.colors[i] = set.colors[i];                                         \
       clone.inited[i] = set.inited[i];                                         \
+                                                                               \
+      for (size_t j = 0; j < 8; j++) {                                         \
+        size_t slot = (i * 8) + j;                                             \
+        clone.collisions[slot] = set.collisions[slot];                         \
+        clone.nodes[slot] = set.nodes[slot];                                   \
+        clone.entries[slot] = set.entries[slot];                               \
+      }                                                                        \
     }                                                                          \
+                                                                               \
     clone.hash_fn = hash_function;                                             \
     clone.equals_fn = equals_function;                                         \
                                                                                \
@@ -285,16 +279,65 @@ typedef struct {
     set_init(set, hash_fn, equals_fn);                                         \
   } while (0)
 
-#define set_find_node(set, key)                                                \
+#define set_find_collision(set, node_idx, entry_value)                         \
+  ({                                                                           \
+    typeof(*set.entries) entry_val = (entry_value);                            \
+    typeof(*set.entries) entry = set_get_entry(set, node_idx);                 \
+                                                                               \
+    size_t retval = 0;                                                         \
+                                                                               \
+    do {                                                                       \
+      if (set.equals_fn(entry, entry_val)) {                                   \
+        retval = node_idx;                                                     \
+        break;                                                                 \
+      }                                                                        \
+                                                                               \
+      set_collision_t *collision = set_get_collision(set, node_idx);           \
+      set_collision_t *c = collision;                                          \
+      while (set_is_valid_addr(c->prev)) {                                     \
+        entry = set_get_entry(set, c->prev);                                   \
+        if (set.equals_fn(entry, entry_val)) {                                 \
+          retval = c->prev;                                                    \
+          break;                                                               \
+        }                                                                      \
+        c = set_get_collision(set, c->prev);                                   \
+      }                                                                        \
+      if (!set_is_valid_addr(retval)) {                                        \
+        c = collision;                                                         \
+        while (set_is_valid_addr(c->next)) {                                   \
+          entry = set_get_entry(set, c->next);                                 \
+          if (set.equals_fn(entry, entry_val)) {                               \
+            retval = c->next;                                                  \
+            break;                                                             \
+          }                                                                    \
+          c = set_get_collision(set, c->next);                                 \
+        }                                                                      \
+      }                                                                        \
+    } while (0);                                                               \
+    retval;                                                                    \
+  })
+
+#define set_find_node_entry(set, hash_value, entry_value)                      \
+  ({                                                                           \
+    uint64_t hash_val = (hash_value);                                          \
+    size_t node_idx = set_find_node(set, hash_val);                            \
+    size_t retval = 0;                                                         \
+    if (set_is_inited(set, node_idx)) {                                        \
+      retval = set_find_collision(set, node_idx, entry_value);                 \
+    }                                                                          \
+    retval;                                                                    \
+  })
+
+#define set_find_node(set, hash_value)                                         \
   ({                                                                           \
     size_t n_idx = set.root;                                                   \
     size_t find_node_retval;                                                   \
     while (set_is_valid_addr(n_idx)) {                                         \
       find_node_retval = n_idx;                                                \
       set_node_t *node = set_get_node(set, n_idx);                             \
-      if (key > node->hash) {                                                  \
+      if ((hash_value) > node->hash) {                                         \
         n_idx = node->right;                                                   \
-      } else if (key < node->hash) {                                           \
+      } else if ((hash_value) < node->hash) {                                  \
         n_idx = node->left;                                                    \
       } else {                                                                 \
         break;                                                                 \
@@ -323,6 +366,18 @@ typedef struct {
     set.free_list[free_list_byte_idx] ^= bmask;                                \
   } while (0)
 
+#define set_get_collision(set, addr)                                           \
+  ({                                                                           \
+    size_t idx = set_idx(addr);                                                \
+    if (set.capacity <= idx) {                                                 \
+      printf(                                                                  \
+          "Warning: set capacity (%zu) is less than or equal to index %zu\n",  \
+          set.capacity, idx);                                                  \
+    }                                                                          \
+    assert(set.capacity > idx);                                                \
+    &set.collisions[idx];                                                      \
+  })
+
 #define set_get_entry(set, addr)                                               \
   ({                                                                           \
     size_t idx = set_idx(addr);                                                \
@@ -348,9 +403,8 @@ typedef struct {
 #define set_has(set, entry)                                                    \
   ({                                                                           \
     uint64_t hash = set.hash_fn(entry);                                        \
-    size_t node_idx = set_find_node(set, hash);                                \
-    set_node_t *node = set_get_node(set, node_idx);                            \
-    set_is_inited(set, node_idx) && node->hash == hash;                        \
+    size_t node_idx = set_find_node_entry(set, hash, entry);                   \
+    set_is_valid_addr(node_idx);                                               \
   })
 
 #define set_idx(addr) (addr) - 1
@@ -359,6 +413,7 @@ typedef struct {
     set.capacity = SET_ALLOC_CHUNK;                                            \
     set.nodes = malloc(sizeof(set_node_t) * set.capacity);                     \
     set.entries = malloc(sizeof(typeof(*set.entries)) * set.capacity);         \
+    set.collisions = malloc(sizeof(set_collision_t) * set.capacity);           \
     set.free_list = malloc(set.capacity / 8);                                  \
     set.colors = malloc(set.capacity / 8);                                     \
     set.inited = malloc(set.capacity / 8);                                     \
@@ -507,20 +562,19 @@ typedef struct {
     (set.f_member[byte_idx] & mask) != 0;                                      \
   })
 
-// TODO(2025-02-26, Max Bolotin): To reproduce - add, 100, 200, 300, 400, 500
-// 600, remove 600, 400
 #define set_remove(set, entry)                                                 \
   do {                                                                         \
     uint64_t hash = set.hash_fn(entry);                                        \
     start_trace(hash, trace_span("Removing entry %lld"), hash);                \
-    size_t node_idx = set_find_node(set, hash);                                \
-    set_node_t *node = set_get_node(set, node_idx);                            \
+    size_t node_idx = set_find_node_entry(set, hash, entry);                   \
                                                                                \
-    if (node->hash != hash) {                                                  \
+    if (!set_is_valid_addr(node_idx)) {                                        \
       trace(trace_info("Entry does not exist in tree"));                       \
       end_trace();                                                             \
       break;                                                                   \
     }                                                                          \
+                                                                               \
+    set_node_t *node = set_get_node(set, node_idx);                            \
                                                                                \
     size_t color_sample_idx = node_idx;                                        \
     size_t fixup_target_idx;                                                   \
@@ -614,6 +668,16 @@ typedef struct {
     } else {                                                                   \
       trace(trace_info(                                                        \
           "Original color of color sample was red, no fixup required"));       \
+    }                                                                          \
+                                                                               \
+    set_collision_t *collision = set_get_collision(set, node_idx);             \
+    size_t collision_next = collision->next;                                   \
+    size_t collision_prev = collision->prev;                                   \
+    if (set_is_valid_addr(collision_prev)) {                                   \
+      set_get_collision(set, collision_prev)->next = collision_next;           \
+    }                                                                          \
+    if (set_is_valid_addr(collision_next)) {                                   \
+      set_get_collision(set, collision_next)->prev = collision_prev;           \
     }                                                                          \
                                                                                \
     trace(trace_result("Freeing node"));                                       \
@@ -733,6 +797,7 @@ typedef struct {
 #define set_type(entry_type)                                                   \
   struct {                                                                     \
     set_node_t *nodes;                                                         \
+    set_collision_t *collisions;                                               \
     entry_type *entries;                                                       \
     size_t root;                                                               \
     size_t capacity;                                                           \

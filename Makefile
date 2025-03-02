@@ -21,7 +21,7 @@ out/interactive_tester: set.h setdebug.h setdebug.c trace.c trace.h interactive_
 	mkdir -p out
 	$(CC) $(CFLAGS) -o $@ interactive_tester/main.c setdebug.c trace.c -DSET_TRACE_STEPS -Werror
  
-out/test/test_%: $(UNITY_ROOT)/src/unity.c tests/%.c test_runners/%.c setdebug.c trace.c setdebug.h trace.h
+out/test/test_%: $(UNITY_ROOT)/src/unity.c tests/%.c test_runners/%.c setdebug.c trace.c setdebug.h trace.h set.h
 	mkdir -p out/test
 	$(CC) $(CFLAGS) -o $@ $(UNITY_ROOT)/src/unity.c tests/$*.c test_runners/$*.c setdebug.c trace.c -DSET_TRACE_STEPS
 

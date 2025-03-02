@@ -21,12 +21,15 @@ Copy `set.h` into your project and include it into your C file.
 #include "set.h"
 
 // Define your set type 
-typedef set_type(uint32_t) uint32_set_t;
+typedef set_type(uint32_t) set_t;
+
+uint64_t hash_fn(uint32_t value) { return value; }
+bool equals_fn(uint32_t a, uint32_t b) { return a == b; }
 
 int main(void) {
   // Initialize set, here with included default hashing function for 32-bit unsigned integers
-  uint32_set_t set;
-  set_init(set, set_uint32_hash_fn);
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
 
   // Add some integers to the set
   set_add(set, 2);
