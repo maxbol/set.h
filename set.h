@@ -57,15 +57,15 @@ typedef struct {
   size_t prev;
 } tree_collision_t;
 
-#define SET_ALLOC_CHUNK 512
+#define ALLOC_CHUNK 512
 
 #define BIT_HEADER_ADDR ((size_t)1 << 63)
 #define BIT_HEADER_IDX (~BIT_HEADER_ADDR)
 
 #define map_add(map, key_var, value_var)                                       \
   do {                                                                         \
-    size_t leaf_idx = set_add_ex(map, key_var, map_alloc_new_node,             \
-                                 map_write_key, map_find_duplicate);           \
+    size_t leaf_idx = tree_add(map, key_var, map_alloc_new_node,               \
+                               map_write_key, map_find_duplicate);             \
                                                                                \
     if (tree_is_valid_addr(leaf_idx)) {                                        \
       map_write_value(map, leaf_idx, value_var);                               \
@@ -76,7 +76,7 @@ typedef struct {
   tree_add(set, entry_var, set_alloc_new_node, set_write_entry,                \
            set_find_duplicate)
 
-#define tree_add(tree, entry_var, tree_alloc_new_node, tree_write_entry,       \
+#define tree_add(tree, entry_var, alloc_new_node, tree_write_entry,            \
                  find_duplicate)                                               \
   ({                                                                           \
     size_t retval = 0;                                                         \
@@ -88,7 +88,7 @@ typedef struct {
       tree_node_t *leaf = tree_get_node(tree, leaf_idx);                       \
                                                                                \
       if (tree_is_inited(tree, leaf_idx) != 0) {                               \
-        size_t duplicate_idx = find_duplicate(tree, leaf_idx, (entry_var));    \
+        size_t duplicate_idx = find_duplicate(tree, leaf_idx, entry_var);      \
                                                                                \
         if (tree_is_valid_addr(duplicate_idx)) {                               \
           retval = 0;                                                          \
@@ -115,8 +115,8 @@ typedef struct {
         leaf = tree_get_node(tree, leaf_idx);                                  \
       }                                                                        \
                                                                                \
-      size_t left_idx = tree_alloc_new_node(tree);                             \
-      size_t right_idx = tree_alloc_new_node(tree);                            \
+      size_t left_idx = alloc_new_node(tree);                                  \
+      size_t right_idx = alloc_new_node(tree);                                 \
       tree_get_node(tree, left_idx)->parent = leaf_idx;                        \
       tree_get_node(tree, right_idx)->parent = leaf_idx;                       \
       tree_write_color(tree, left_idx, NODE_COLOR_BLACK);                      \
@@ -153,22 +153,23 @@ typedef struct {
   set.entries =                                                                \
       realloc(set.entries, sizeof(typeof(*set.entries)) * set.capacity)
 
-#define map_create_entry(set, idx)                                             \
+#define map_create_entry(map, idx)                                             \
   do {                                                                         \
-    memset(&set.keys[idx], 0x00, sizeof(typeof(*set.keys)));                   \
-    memset(&set.values[idx], 0x00, sizeof(typeof(*set.values)));               \
+    memset(&map.keys[idx], 0x00, sizeof(typeof(*map.keys)));                   \
+    memset(&map.values[idx], 0x00, sizeof(typeof(*map.values)));               \
   } while (0)
 
-#define map_malloc_entries(set)                                                \
+#define map_malloc_entries(map)                                                \
   do {                                                                         \
-    set.keys = malloc(sizeof(typeof(*set.keys)) * set.capacity);               \
-    set.values = malloc(sizeof(typeof(*set.values)) * set.capacity);           \
+    map.keys = malloc(sizeof(typeof(*map.keys)) * map.capacity);               \
+    map.values = malloc(sizeof(typeof(*map.values)) * map.capacity);           \
   } while (0)
 
-#define map_realloc_entries(set)                                               \
+#define map_realloc_entries(map)                                               \
   do {                                                                         \
-    set.keys = realloc(sizeof(typeof(*set.keys)) * set.capacity);              \
-    set.values = realloc(sizeof(typeof(*set.values)) * set.capacity);          \
+    map.keys = realloc(map.keys, sizeof(typeof(*map.keys)) * map.capacity);    \
+    map.values =                                                               \
+        realloc(map.keys, sizeof(typeof(*map.values)) * map.capacity);         \
   } while (0)
 
 #define map_alloc_new_node(map)                                                \
@@ -350,7 +351,7 @@ typedef struct {
     set_init(tree, hash_fn, equals_fn);                                        \
   } while (0)
 
-#define map_find_duplicate(map, node_idx, key_var, map_get_key)                \
+#define map_find_duplicate(map, node_idx, key_var)                             \
   tree_find_duplicate(map, node_idx, key_var, map_get_key, keys)
 #define set_find_duplicate(set, node_idx, entry_var)                           \
   tree_find_duplicate(set, node_idx, entry_var, set_get_entry, entries)
@@ -514,15 +515,38 @@ typedef struct {
     tree_is_valid_addr(node_idx);                                              \
   })
 
+#define map_has(map, key)                                                      \
+  ({                                                                           \
+    uint64_t hash = map.hash_fn(key);                                          \
+    size_t node_idx = map_find_node_entry(map, hash, key);                     \
+    tree_is_valid_addr(node_idx);                                              \
+  })
+
+#define map_get(map, key)                                                      \
+  ({                                                                           \
+    uint64_t hash = map.hash_fn(key);                                          \
+    size_t node_idx = map_find_node_entry(map, hash, key);                     \
+    typeof(map.values) retval = NULL;                                          \
+    if (tree_is_valid_addr(node_idx)) {                                        \
+      size_t idx = tree_idx(node_idx);                                         \
+      assert(map.capacity > idx);                                              \
+      retval = &map.values[idx];                                               \
+    }                                                                          \
+    retval;                                                                    \
+  })
+
 #define tree_idx(addr) (addr) - 1
 
 #define set_init(set, hash_function, equals_function)                          \
-  tree_init(set, hash_function, equals_function, set_malloc_entries)
+  tree_init(set, hash_function, equals_function, set_malloc_entries,           \
+            set_alloc_new_node)
 #define map_init(set, hash_function, equals_function)                          \
-  tree_init(map, hash_function, equals_function, map_malloc_entries)
-#define tree_init(tree, hash_function, equals_function, malloc_entries)        \
+  tree_init(map, hash_function, equals_function, map_malloc_entries,           \
+            map_alloc_new_node)
+#define tree_init(tree, hash_function, equals_function, malloc_entries,        \
+                  alloc_new_node)                                              \
   do {                                                                         \
-    tree.capacity = SET_ALLOC_CHUNK;                                           \
+    tree.capacity = ALLOC_CHUNK;                                               \
     tree.nodes = malloc(sizeof(tree_node_t) * tree.capacity);                  \
     tree.collisions = malloc(sizeof(tree_collision_t) * tree.capacity);        \
     tree.free_list = malloc(tree.capacity / 8);                                \
@@ -532,7 +556,7 @@ typedef struct {
     memset(tree.free_list, 0xff, tree.capacity / 8);                           \
     memset(tree.colors, 0x00, tree.capacity / 8);                              \
     memset(tree.inited, 0x00, tree.capacity / 8);                              \
-    tree.root = set_alloc_new_node(tree);                                      \
+    tree.root = alloc_new_node(tree);                                          \
     tree.hash_fn = hash_function;                                              \
     tree.equals_fn = equals_function;                                          \
   } while (0)
@@ -937,7 +961,8 @@ typedef struct {
     key_type *keys;                                                            \
     value_type *values;                                                        \
     uint64_t (*hash_fn)(key_type);                                             \
-    bool (*equals_fn)(key_type, entry_type);                                   \
+    bool (*equals_fn)(key_type, key_type);                                     \
+    tree_type_fields()                                                         \
   }
 
 #define tree_ult(tree, f_direction)                                            \
