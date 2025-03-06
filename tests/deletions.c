@@ -19,7 +19,7 @@ void test_delete_only_member(void) {
   set_remove(set, 2);
 
   TEST_ASSERT_EQUAL(0, set_size(set));
-  TEST_ASSERT_EQUAL(0, set_is_inited(set, set.root));
+  TEST_ASSERT_EQUAL(0, tree_is_inited(set, set.root));
 }
 
 void test_delete_root_with_two_children(void) {
