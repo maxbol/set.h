@@ -40,8 +40,6 @@ typedef struct {
                        : 0;                                                    \
     rewind_amount = 0;                                                         \
                                                                                \
-    printf("Writing set to history slot %zu\n", history_idx + 1);              \
-                                                                               \
     history_idx++;                                                             \
                                                                                \
     size_t history_cursor = history_idx % 5;                                   \

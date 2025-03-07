@@ -497,39 +497,27 @@ typedef struct {
 #define tree_find_duplicate(tree, node_idx, entry_var, tree_get_entry,         \
                             f_entries)                                         \
   ({                                                                           \
-    typeof(*tree.f_entries) entry_val = (entry_var);                           \
-    typeof(*tree.f_entries) entry = tree_get_entry(tree, node_idx);            \
-                                                                               \
     size_t retval = 0;                                                         \
+    typeof(*tree.f_entries) entry_val = (entry_var);                           \
                                                                                \
-    do {                                                                       \
-      if (tree.equals_fn(entry, entry_val)) {                                  \
-        retval = node_idx;                                                     \
-        break;                                                                 \
-      }                                                                        \
+    for (int i = 0; i < 2; i++) {                                              \
+      size_t next = node_idx;                                                  \
                                                                                \
-      tree_collision_t *collision = tree_get_collision(tree, node_idx);        \
-      tree_collision_t *c = collision;                                         \
-      while (tree_is_valid_addr(c->prev)) {                                    \
-        entry = tree_get_entry(tree, c->prev);                                 \
-        if (tree.equals_fn(entry, entry_val)) {                                \
-          retval = c->prev;                                                    \
+      do {                                                                     \
+        typeof(*tree.f_entries) entry = tree_get_entry(tree, next);            \
+        if ((next != node_idx || i == 0) &&                                    \
+            tree.equals_fn(entry, entry_val)) {                                \
+          retval = next;                                                       \
           break;                                                               \
         }                                                                      \
-        c = tree_get_collision(tree, c->prev);                                 \
+        tree_collision_t *collision = tree_get_collision(tree, next);          \
+        next = i == 1 ? collision->next : collision->prev;                     \
+      } while (tree_is_valid_addr(next));                                      \
+                                                                               \
+      if (tree_is_valid_addr(retval)) {                                        \
+        break;                                                                 \
       }                                                                        \
-      if (!tree_is_valid_addr(retval)) {                                       \
-        c = collision;                                                         \
-        while (tree_is_valid_addr(c->next)) {                                  \
-          entry = tree_get_entry(tree, c->next);                               \
-          if (tree.equals_fn(entry, entry_val)) {                              \
-            retval = c->next;                                                  \
-            break;                                                             \
-          }                                                                    \
-          c = tree_get_collision(tree, c->next);                               \
-        }                                                                      \
-      }                                                                        \
-    } while (0);                                                               \
+    }                                                                          \
     retval;                                                                    \
   })
 
