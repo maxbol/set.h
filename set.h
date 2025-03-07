@@ -77,6 +77,7 @@ typedef struct {
 
 #define map_alloc_new_node(map)                                                \
   tree_alloc_new_node(map, map_create_entry, map_realloc_entries)
+
 #define map_clear_entry(map, addr)                                             \
   do {                                                                         \
     size_t clear_idx = tree_idx(addr);                                         \
@@ -87,6 +88,7 @@ typedef struct {
 
 #define map_clone(map)                                                         \
   tree_clone(set, map_malloc_entries, map_get_key, map_write_key)
+
 #define map_create_entry(map, idx)                                             \
   do {                                                                         \
     memset(&map.keys[idx], 0x00, sizeof(typeof(*map.keys)));                   \
@@ -94,11 +96,15 @@ typedef struct {
   } while (0)
 
 #define map_empty(map) tree_empty(map, map_init, map_free)
+
 #define map_find_duplicate(map, node_idx, key_var)                             \
   tree_find_duplicate(map, node_idx, key_var, map_get_key, keys)
+
 #define map_find_node_entry(map, hash_value, key_var)                          \
   tree_find_node_entry(map, hash_value, key_var, map_find_duplicate)
+
 #define map_free(map) tree_free(map, map_free_data)
+
 #define map_free_data(set)                                                     \
   do {                                                                         \
     free(set.keys);                                                            \
@@ -142,6 +148,7 @@ typedef struct {
 #define map_init(set, hash_function, equals_function)                          \
   tree_init(map, hash_function, equals_function, map_malloc_entries,           \
             map_alloc_new_node)
+
 #define map_malloc_entries(map)                                                \
   do {                                                                         \
     map.keys = malloc(sizeof(typeof(*map.keys)) * map.capacity);               \
@@ -157,7 +164,9 @@ typedef struct {
 
 #define map_remove(set, entry)                                                 \
   tree_remove(set, entry, map_find_node_entry, map_clear_entry)
+
 #define map_size(tree) tree_size(tree)
+
 #define map_type(key_type, value_type)                                         \
   struct {                                                                     \
     key_type *keys;                                                            \
@@ -189,6 +198,7 @@ typedef struct {
 
 #define set_alloc_new_node(set)                                                \
   tree_alloc_new_node(set, set_create_entry, set_realloc_entries)
+
 #define set_clear_entry(set, addr)                                             \
   do {                                                                         \
     size_t clear_idx = tree_idx(addr);                                         \
@@ -199,15 +209,20 @@ typedef struct {
 
 #define set_clone(set)                                                         \
   tree_clone(set, set_malloc_entries, set_get_entry, set_write_entry)
+
 #define set_create_entry(set, idx)                                             \
   memset(&set.entries[idx], 0x00, sizeof(typeof(*set.entries)))
 
-#define set_empty(set) tree_empty(tree, set_init, set_free)
+#define set_empty(set) tree_empty(set, set_init, set_free)
+
 #define set_find_duplicate(set, node_idx, entry_var)                           \
   tree_find_duplicate(set, node_idx, entry_var, set_get_entry, entries)
+
 #define set_find_node_entry(set, hash_value, entry_var)                        \
   tree_find_node_entry(set, hash_value, entry_var, set_find_duplicate)
+
 #define set_free(set) tree_free(set, set_free_data)
+
 #define set_free_data(set)                                                     \
   do {                                                                         \
     free(set.entries);                                                         \
@@ -239,7 +254,9 @@ typedef struct {
 
 #define set_remove(set, entry)                                                 \
   tree_remove(set, entry, set_find_node_entry, set_clear_entry)
+
 #define set_size(tree) tree_size(tree)
+
 #define set_type(entry_type)                                                   \
   struct {                                                                     \
     entry_type *entries;                                                       \
@@ -735,6 +752,7 @@ typedef struct {
 
 #define tree_rb_insert_fixup_left(set, node_idx)                               \
   tree_rb_insert_fixup_dir(set, node_idx, right, left)
+
 #define tree_rb_insert_fixup_right(set, node_idx)                              \
   tree_rb_insert_fixup_dir(set, node_idx, left, right)
 
