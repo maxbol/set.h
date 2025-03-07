@@ -21,8 +21,8 @@ void test_collision_on_add(void) {
   set_add(set, 2);
   set_add(set, 2);
 
-  TEST_ASSERT_EQUAL(1, set_node_blackheight(set.nodes, set.colors, set.inited,
-                                            set.root, true, true));
+  TEST_ASSERT_EQUAL(1, debug_node_blackheight(set.nodes, set.colors, set.inited,
+                                              set.root, true, true));
   TEST_ASSERT_EQUAL(2, set_size(set));
 }
 
@@ -42,8 +42,8 @@ void test_self_balancing_single_hash(void) {
   set_add(set, 10);
 
   TEST_ASSERT_EQUAL(10, set_size(set));
-  TEST_ASSERT_EQUAL(3, set_node_blackheight(set.nodes, set.colors, set.inited,
-                                            set.root, true, true));
+  TEST_ASSERT_EQUAL(3, debug_node_blackheight(set.nodes, set.colors, set.inited,
+                                              set.root, true, true));
 }
 
 void test_correctly_identifies_has(void) {

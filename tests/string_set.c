@@ -49,6 +49,6 @@ void test_set_remove_string(void) {
   TEST_ASSERT_EQUAL(false, set_has(set, "bar"));
   TEST_ASSERT_EQUAL(true, set_has(set, "foo"));
   TEST_ASSERT_EQUAL(true, set_has(set, "baz"));
-  TEST_ASSERT_EQUAL(1, set_node_blackheight(set.nodes, set.colors, set.inited,
-                                            set.root, true, true));
+  TEST_ASSERT_EQUAL(1, debug_node_blackheight(set.nodes, set.colors, set.inited,
+                                              set.root, true, true));
 }

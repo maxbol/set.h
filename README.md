@@ -1,12 +1,12 @@
 # set.h
 
-Generic ordered set implementation using C.
+Generic ordered set/map implementation using C.
 
 * Single header implementation using macros
 * Auto-balancing tree structure (Red & Black tree)
 * Cache-efficient memory layout (data types kept in singular, expanding buffers)
 * Bring your own hashing function 
-* Small (~ 600 LOC)
+* Small (~ ~~400~~ ~~600~~ 1000 LOC)
 
 ## Why?
 
@@ -16,7 +16,9 @@ This is mostly for me learning C, data structures and algorithms. Probably not a
 
 Copy `set.h` into your project and include it into your C file.
 
-## Usage
+## Usage 
+
+### Sets
 ```c
 #include "set.h"
 
@@ -49,7 +51,7 @@ int main(void) {
   size_t cursor = set_first(set);
   while (cursor != 0) {
     uint32_t entry = set_get_entry(set, cursor);
-    cursor = set_next(set, cursor);
+    cursor = tree_next(set, cursor);
     // Do something with the entry...
   }
 
@@ -60,11 +62,47 @@ int main(void) {
   set_free(set);
 }
 ```
+### Maps
+```c
+#include "set.h"
+
+// Define your map type using its key and value types
+typedef map_type(uint32_t, const char *) map_t;
+
+uint64_t hash_fn(uint32_t value) { return value; }
+bool equals_fn(uint32_t a, uint32_t b) { return a == b; }
+
+int main(void) {
+  // Initialize set, here with included default hashing function for 32-bit unsigned integers
+  map_t map;
+  map_init(map, hash_fn, equals_fn);
+
+  // Add some entries to the hashmap
+  map_add(map, 2, "Hello");
+  map_add(map, 2, "Hola"); // Does not affect the state of the set
+  map_add(map, 5, "cruel");
+  map_add(map, 7, "world");
+
+  // Get the pointer to the value based on a key (returns NULL if member does not exist in map)
+  const char **value = map_get(map, 5);
+  if (value != NULL) {
+    printf("%s", *value);
+  }
+
+  // All other operations that apply to sets also apply to maps
+
+  size_t size = map_size(map); // 3
+
+  // etc...
+
+  map_free(map);
+}
+```
 ## Debugging
 
 A separate `setdebug.c` file (with corresponding header) is included in the source for debugging purposes.
 
-### `set_node_blackheight()`
+### `debug_node_blackheight()`
 Use to get the black-height of any node in your set. Asserts that the black-height is uniform regardless of path travelled.
 
 ```c
@@ -77,14 +115,14 @@ set_add(set, 10);
 set_add(set, 6);
 
 // Get blackheight of entire tree
-size_t set_blackheight = set_node_blackheight(set.nodes, set.colors, set.inited, set.root, false);
+size_t set_blackheight = debug_node_blackheight(set.nodes, set.colors, set.inited, set.root, false);
 
 // Get blackheight of a single node
 size_t target_idx = set_get_node(set, set.root)->right;
-size_t set_blackheight = set_node_blackheight(set.nodes, set.colors, set.inited, target_idx, false);
+size_t set_blackheight = debug_node_blackheight(set.nodes, set.colors, set.inited, target_idx, false);
 ```
 
-### `set_draw_tree()`
+### `debug_draw_tree()`
 Draw an ASCII representation of the tree structure of the set.
 ```c
 set_uint32_t set;
@@ -105,7 +143,7 @@ size_t canvas_byte_width = canvas_width * canvas_height * 64;
 char output_buf[canvas_byte_width];
 
 // Write tree representation into output buffer. Returned value is number of bytes written.
-int written = set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width, canvas_height, output_buf, canvas_byte_width);
+int written = debug_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width, canvas_height, output_buf, canvas_byte_width);
 
 // Print the tree to stdout
 printf("%.*s", written, out_buf);
