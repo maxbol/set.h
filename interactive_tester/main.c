@@ -160,10 +160,12 @@ char *read_command(char *cmd_string, Command *cmd, uint32_t *entry,
 }
 
 int main(void) {
+  enable_tracing();
+
   set_t set;
   set_init(set, hash_fn, equals_fn);
 
-  size_t canvas_width = 120;
+  size_t canvas_width = 60;
   size_t canvas_height = 15;
   char *canvas = debug_draw_alloc_canvas(canvas_width, canvas_height);
 

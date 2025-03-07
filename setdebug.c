@@ -71,7 +71,7 @@ size_t debug_draw_tree_node(tree_node_t *nodes, uint8_t *colors,
 
   size_t byte_idx = floor((float)node_idx / 8);
   size_t bit_idx = node_idx % 8;
-  uint8_t mask = 1 << (7 - bit_idx);
+  uint8_t mask = 1 << bit_idx;
 
   bool is_inited = (inited[byte_idx] & mask) != 0;
   bool is_red = (colors[byte_idx] & mask) != 0;
@@ -180,7 +180,7 @@ size_t debug_node_blackheight(tree_node_t *nodes, uint8_t *colors,
 
   size_t byte_idx = floor((float)node_idx / 8);
   size_t bit_idx = node_idx % 8;
-  uint8_t mask = 1 << (7 - bit_idx);
+  uint8_t mask = 1 << bit_idx;
   bool is_black = (colors[byte_idx] & mask) == 0;
   bool is_inited = (inited[byte_idx] & mask) != 0;
 
