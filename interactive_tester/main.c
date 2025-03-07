@@ -165,7 +165,7 @@ int main(void) {
 
   size_t canvas_width = 120;
   size_t canvas_height = 15;
-  char *canvas = set_draw_alloc_canvas(canvas_width, canvas_height);
+  char *canvas = debug_draw_alloc_canvas(canvas_width, canvas_height);
 
   const size_t out_buf_size = canvas_width * canvas_height * 64;
   char out_buf[out_buf_size];
@@ -191,18 +191,18 @@ int main(void) {
 
     printf("%.*s", trace_hist_item.len, trace_hist_item.buf);
 
-    size_t blackheight = set_node_blackheight(set.nodes, set.colors, set.inited,
-                                              set.root, true, false);
+    size_t blackheight = debug_node_blackheight(
+        set.nodes, set.colors, set.inited, set.root, true, false);
 
     printf("Current blackheight: %zu\n", blackheight);
 
-    set_clear_canvas(canvas, canvas_width, canvas_height);
+    debug_clear_canvas(canvas, canvas_width, canvas_height);
 
-    set_draw_tree_node(set.nodes, set.colors, set.inited, set.root, canvas,
-                       canvas_width, canvas_height, 0, 0, ROOT);
+    debug_draw_tree_node(set.nodes, set.colors, set.inited, set.root, canvas,
+                         canvas_width, canvas_height, 0, 0, ROOT);
 
-    int written = set_draw_tree_canvas(canvas_width, canvas_height, canvas,
-                                       out_buf, out_buf_size);
+    int written = debug_draw_tree_canvas(canvas_width, canvas_height, canvas,
+                                         out_buf, out_buf_size);
 
     printf("%.*s\n\n", written, out_buf);
 

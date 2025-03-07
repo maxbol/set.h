@@ -35,8 +35,8 @@ void test_delete_root_with_two_children(void) {
   set_remove(set, 2);
 
   TEST_ASSERT_EQUAL(2, set_size(set));
-  TEST_ASSERT_EQUAL(1, set_node_blackheight(set.nodes, set.colors, set.inited,
-                                            set.root, true, true));
+  TEST_ASSERT_EQUAL(1, debug_node_blackheight(set.nodes, set.colors, set.inited,
+                                              set.root, true, true));
 }
 
 void test_delete_red_parent_of_two_black_childless(void) {
@@ -51,6 +51,6 @@ void test_delete_red_parent_of_two_black_childless(void) {
   set_remove(set, 4);
 
   TEST_ASSERT_EQUAL(4, set_size(set));
-  TEST_ASSERT_EQUAL(2, set_node_blackheight(set.nodes, set.colors, set.inited,
-                                            set.root, true, true));
+  TEST_ASSERT_EQUAL(2, debug_node_blackheight(set.nodes, set.colors, set.inited,
+                                              set.root, true, true));
 }

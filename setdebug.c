@@ -3,38 +3,39 @@
 #include "set.h"
 #include "setdebug.h"
 
-void set_clear_canvas(char *canvas, size_t canvas_width, size_t canvas_height) {
+void debug_clear_canvas(char *canvas, size_t canvas_width,
+                        size_t canvas_height) {
   for (int i = 0; i < canvas_width * canvas_height; i++) {
     canvas[i * CELL_SIZE] = ' ';
     canvas[(i * CELL_SIZE) + 1] = 0;
   }
 }
 
-char *set_draw_alloc_canvas(size_t canvas_width, size_t canvas_height) {
+char *debug_draw_alloc_canvas(size_t canvas_width, size_t canvas_height) {
   char *canvas = malloc(CELL_SIZE * canvas_width * canvas_height);
-  set_clear_canvas(canvas, canvas_width, canvas_height);
+  debug_clear_canvas(canvas, canvas_width, canvas_height);
   return canvas;
 }
 
-int set_draw_tree(tree_node_t *nodes, uint8_t *colors, uint8_t *inited,
-                  size_t start_node, size_t canvas_width, size_t canvas_height,
-                  char *out, size_t out_len) {
+int debug_draw_tree(tree_node_t *nodes, uint8_t *colors, uint8_t *inited,
+                    size_t start_node, size_t canvas_width,
+                    size_t canvas_height, char *out, size_t out_len) {
 
-  char *canvas = set_draw_alloc_canvas(canvas_width, canvas_height);
+  char *canvas = debug_draw_alloc_canvas(canvas_width, canvas_height);
 
-  set_draw_tree_node(nodes, colors, inited, start_node, canvas, canvas_width,
-                     canvas_height, 0, 0, ROOT);
+  debug_draw_tree_node(nodes, colors, inited, start_node, canvas, canvas_width,
+                       canvas_height, 0, 0, ROOT);
 
   size_t offset =
-      set_draw_tree_canvas(canvas_width, canvas_height, canvas, out, out_len);
+      debug_draw_tree_canvas(canvas_width, canvas_height, canvas, out, out_len);
 
   free(canvas);
 
   return offset;
 }
 
-int set_draw_tree_canvas(size_t canvas_width, size_t canvas_height,
-                         char *canvas, char *out, size_t out_len) {
+int debug_draw_tree_canvas(size_t canvas_width, size_t canvas_height,
+                           char *canvas, char *out, size_t out_len) {
   int offset = 0;
 
   for (size_t i = 0; i < canvas_width + 2; i++) {
@@ -58,10 +59,11 @@ int set_draw_tree_canvas(size_t canvas_width, size_t canvas_height,
   return offset;
 }
 
-size_t set_draw_tree_node(tree_node_t *nodes, uint8_t *colors, uint8_t *inited,
-                          size_t start_node, char *canvas, size_t canvas_width,
-                          size_t canvas_height, size_t padding, size_t line,
-                          set_tree_line_alignment_t alignment) {
+size_t debug_draw_tree_node(tree_node_t *nodes, uint8_t *colors,
+                            uint8_t *inited, size_t start_node, char *canvas,
+                            size_t canvas_width, size_t canvas_height,
+                            size_t padding, size_t line,
+                            set_tree_line_alignment_t alignment) {
   assert(line < canvas_height);
 
   size_t node_idx = tree_idx(start_node);
@@ -85,7 +87,7 @@ size_t set_draw_tree_node(tree_node_t *nodes, uint8_t *colors, uint8_t *inited,
     }
     assert(node.right != 0);
 
-    size_t next_padding = set_draw_tree_node(
+    size_t next_padding = debug_draw_tree_node(
         nodes, colors, inited, node.left, canvas, canvas_width, canvas_height,
         padding, line + 2, LEFT);
     left_pad = next_padding - padding;
@@ -148,7 +150,7 @@ size_t set_draw_tree_node(tree_node_t *nodes, uint8_t *colors, uint8_t *inited,
               node_idx);
     }
     assert(node.left != 0);
-    size_t next_padding = set_draw_tree_node(
+    size_t next_padding = debug_draw_tree_node(
         nodes, colors, inited, node.right, canvas, canvas_width, canvas_height,
         padding, line + 2, RIGHT);
     right_pad = next_padding - padding;
@@ -169,9 +171,9 @@ size_t set_draw_tree_node(tree_node_t *nodes, uint8_t *colors, uint8_t *inited,
 
   return padding;
 }
-size_t set_node_blackheight(tree_node_t *nodes, uint8_t *colors,
-                            uint8_t *inited, size_t start_node, bool is_start,
-                            bool assert_uniform_height) {
+size_t debug_node_blackheight(tree_node_t *nodes, uint8_t *colors,
+                              uint8_t *inited, size_t start_node, bool is_start,
+                              bool assert_uniform_height) {
   size_t node_idx = tree_idx(start_node);
   tree_node_t node = nodes[node_idx];
   size_t counter = 0;
@@ -190,9 +192,9 @@ size_t set_node_blackheight(tree_node_t *nodes, uint8_t *colors,
     assert(node.left != 0);
     assert(node.right != 0);
 
-    size_t left_blackheight = set_node_blackheight(
+    size_t left_blackheight = debug_node_blackheight(
         nodes, colors, inited, node.left, false, assert_uniform_height);
-    size_t right_blackheight = set_node_blackheight(
+    size_t right_blackheight = debug_node_blackheight(
         nodes, colors, inited, node.right, false, assert_uniform_height);
 
     if (left_blackheight != right_blackheight) {

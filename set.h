@@ -220,8 +220,8 @@ typedef struct {
   do {                                                                         \
     size_t clear_idx = tree_idx(addr);                                         \
     assert(map.capacity > clear_idx);                                          \
-    memset(&map.keys[clear_idx], 0x00, sizeof(typeof(set.keys)));              \
-    memset(&map.values[clear_idx], 0x00, sizeof(typeof(set.values)));          \
+    memset(&map.keys[clear_idx], 0x00, sizeof(typeof(map.keys)));              \
+    memset(&map.values[clear_idx], 0x00, sizeof(typeof(map.values)));          \
   } while (0)
 
 #define set_clear_entry(set, addr)                                             \
