@@ -102,7 +102,7 @@ int main(void) {
 
 A separate `setdebug.c` file (with corresponding header) is included in the source for debugging purposes.
 
-### `set_node_blackheight()`
+### `debug_node_blackheight()`
 Use to get the black-height of any node in your set. Asserts that the black-height is uniform regardless of path travelled.
 
 ```c
@@ -115,14 +115,14 @@ set_add(set, 10);
 set_add(set, 6);
 
 // Get blackheight of entire tree
-size_t set_blackheight = set_node_blackheight(set.nodes, set.colors, set.inited, set.root, false);
+size_t set_blackheight = debug_node_blackheight(set.nodes, set.colors, set.inited, set.root, false);
 
 // Get blackheight of a single node
 size_t target_idx = set_get_node(set, set.root)->right;
-size_t set_blackheight = set_node_blackheight(set.nodes, set.colors, set.inited, target_idx, false);
+size_t set_blackheight = debug_node_blackheight(set.nodes, set.colors, set.inited, target_idx, false);
 ```
 
-### `set_draw_tree()`
+### `debug_draw_tree()`
 Draw an ASCII representation of the tree structure of the set.
 ```c
 set_uint32_t set;
@@ -143,7 +143,7 @@ size_t canvas_byte_width = canvas_width * canvas_height * 64;
 char output_buf[canvas_byte_width];
 
 // Write tree representation into output buffer. Returned value is number of bytes written.
-int written = set_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width, canvas_height, output_buf, canvas_byte_width);
+int written = debug_draw_tree(set.nodes, set.colors, set.inited, set.root, canvas_width, canvas_height, output_buf, canvas_byte_width);
 
 // Print the tree to stdout
 printf("%.*s", written, out_buf);
