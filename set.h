@@ -276,8 +276,6 @@ typedef struct {
       start_trace(hash, trace_span("Adding entry"));                           \
       size_t leaf_idx = tree_find_node(tree, hash);                            \
                                                                                \
-      tree_node_t *leaf = tree_get_node(tree, leaf_idx);                       \
-                                                                               \
       if (tree_is_inited(tree, leaf_idx) != 0) {                               \
         size_t duplicate_idx = find_duplicate(tree, leaf_idx, entry_var);      \
                                                                                \
@@ -303,7 +301,6 @@ typedef struct {
         collision->next = next;                                                \
         tree_get_collision(tree, next)->prev = leaf_idx;                       \
         leaf_idx = next;                                                       \
-        leaf = tree_get_node(tree, leaf_idx);                                  \
       }                                                                        \
                                                                                \
       size_t left_idx = alloc_new_node(tree);                                  \
@@ -312,6 +309,8 @@ typedef struct {
       tree_get_node(tree, right_idx)->parent = leaf_idx;                       \
       tree_write_color(tree, left_idx, NODE_COLOR_BLACK);                      \
       tree_write_color(tree, right_idx, NODE_COLOR_BLACK);                     \
+                                                                               \
+      tree_node_t *leaf = tree_get_node(tree, leaf_idx);                       \
                                                                                \
       *leaf = (tree_node_t){                                                   \
           .hash = hash,                                                        \
@@ -357,11 +356,12 @@ typedef struct {
     }                                                                          \
     if (!found_free) {                                                         \
       size_t i = set.capacity;                                                 \
+      retval = tree_addr(i);                                                   \
+      set.capacity *= 2;                                                       \
       size_t flag_cap = set.capacity / 8;                                      \
       size_t flag_i = i / 8;                                                   \
       size_t flag_offset = flag_cap - flag_i;                                  \
-      retval = tree_addr(i);                                                   \
-      set.capacity *= 2;                                                       \
+                                                                               \
       set.nodes = realloc(set.nodes, sizeof(tree_node_t) * set.capacity);      \
       set.collisions =                                                         \
           realloc(set.collisions, sizeof(tree_collision_t) * set.capacity);    \
@@ -375,8 +375,8 @@ typedef struct {
       set.collisions[i] = (tree_collision_t)COLLISION_NIL;                     \
       create_entry(set, i);                                                    \
                                                                                \
+      memset(&set.free_list[flag_i], 0x00, flag_offset);                       \
       set.free_list[flag_i] = 1;                                               \
-      memset(&set.free_list[flag_i + 1], 0x00, flag_offset - 1);               \
     }                                                                          \
     retval;                                                                    \
   })
