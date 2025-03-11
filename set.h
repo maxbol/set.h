@@ -64,7 +64,6 @@ typedef struct {
 
 typedef struct {
   tree_addr_t next;
-  tree_addr_t prev;
   bool free;
 } tree_freelistslot_t;
 
@@ -386,17 +385,15 @@ typedef struct {
                                                                                \
       set.free_list_start = tree_addr(i + 1);                                  \
                                                                                \
-      set.free_list[i] =                                                       \
-          (tree_freelistslot_t){.prev = 0, .next = 0, .free = 0};              \
-      set.free_list[i + 1] = (tree_freelistslot_t){                            \
-          .prev = 0, .next = tree_addr(i + 2), .free = 1};                     \
+      set.free_list[i] = (tree_freelistslot_t){.next = 0, .free = 0};          \
+      set.free_list[i + 1] =                                                   \
+          (tree_freelistslot_t){.next = tree_addr(i + 2), .free = 1};          \
       for (tree_idx_t idx = i + 2; idx < set.capacity - 1; idx++) {            \
-        set.free_list[idx] = (tree_freelistslot_t){.prev = tree_addr(idx - 1), \
-                                                   .next = tree_addr(idx + 1), \
-                                                   .free = 1};                 \
+        set.free_list[idx] =                                                   \
+            (tree_freelistslot_t){.next = tree_addr(idx + 1), .free = 1};      \
       }                                                                        \
-      set.free_list[set.capacity - 1] = (tree_freelistslot_t){                 \
-          .prev = tree_addr(set.capacity - 2), .next = 0, .free = 1};          \
+      set.free_list[set.capacity - 1] =                                        \
+          (tree_freelistslot_t){.next = 0, .free = 1};                         \
       realloc_entries(set);                                                    \
       set.colors = realloc(set.colors, flag_cap);                              \
       set.inited = realloc(set.inited, flag_cap);                              \
@@ -594,13 +591,9 @@ typedef struct {
   do {                                                                         \
     tree_idx_t idx = tree_idx(addr);                                           \
     tree_addr_t current_first = tree.free_list_start;                          \
-    if (tree_is_valid_addr(current_first)) {                                   \
-      tree.free_list[tree_idx(current_first)].prev = addr;                     \
-    }                                                                          \
     tree.free_list_start = addr;                                               \
     tree_freelistslot_t *slot = &tree.free_list[idx];                          \
     slot->free = 1;                                                            \
-    slot->prev = 0;                                                            \
     slot->next = current_first;                                                \
   } while (0)
 
@@ -644,16 +637,14 @@ typedef struct {
     tree.inited = malloc(tree.capacity / 8);                                   \
     tree.free_list_start = tree_addr(0);                                       \
     tree.free_list[0] = (tree_freelistslot_t){                                 \
-        .prev = 0,                                                             \
         .next = tree_addr(1),                                                  \
         .free = 1,                                                             \
     };                                                                         \
     for (uint32_t i = 1; i < tree.capacity - 1; i++) {                         \
-      tree.free_list[i] = (tree_freelistslot_t){                               \
-          .prev = tree_addr(i - 1), .next = tree_addr(i + 1), .free = 1};      \
+      tree.free_list[i] =                                                      \
+          (tree_freelistslot_t){.next = tree_addr(i + 1), .free = 1};          \
     }                                                                          \
     tree.free_list[tree.capacity - 1] = (tree_freelistslot_t){                 \
-        .prev = tree_addr(tree.capacity - 2),                                  \
         .next = 0,                                                             \
         .free = 1,                                                             \
     };                                                                         \

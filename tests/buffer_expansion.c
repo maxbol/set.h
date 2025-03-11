@@ -113,3 +113,22 @@ void test_ridiculous_size(void) {
                     debug_node_blackheight(set.nodes, set.colors, set.inited,
                                            set.root, true, true));
 }
+void test_remove_speed(void) {
+
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
+
+  for (uint32_t i = 0; i < 1024000; i++) {
+    set_add(set, i);
+  }
+
+  enable_tracing();
+  for (uint32_t i = 0; i < 1024000; i++) {
+    set_remove(set, i);
+  }
+  flush_trace_hist();
+  disable_tracing();
+
+  TEST_ASSERT_EQUAL(0, debug_node_blackheight(set.nodes, set.colors, set.inited,
+                                              set.root, true, true));
+}
