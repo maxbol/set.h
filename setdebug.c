@@ -18,7 +18,7 @@ char *debug_draw_alloc_canvas(size_t canvas_width, size_t canvas_height) {
 }
 
 int debug_draw_tree(tree_node_t *nodes, uint8_t *colors, uint8_t *inited,
-                    size_t start_node, size_t canvas_width,
+                    tree_addr_t start_node, size_t canvas_width,
                     size_t canvas_height, char *out, size_t out_len) {
 
   char *canvas = debug_draw_alloc_canvas(canvas_width, canvas_height);
@@ -60,13 +60,13 @@ int debug_draw_tree_canvas(size_t canvas_width, size_t canvas_height,
 }
 
 size_t debug_draw_tree_node(tree_node_t *nodes, uint8_t *colors,
-                            uint8_t *inited, size_t start_node, char *canvas,
-                            size_t canvas_width, size_t canvas_height,
-                            size_t padding, size_t line,
+                            uint8_t *inited, tree_addr_t start_node,
+                            char *canvas, size_t canvas_width,
+                            size_t canvas_height, size_t padding, size_t line,
                             set_tree_line_alignment_t alignment) {
   assert(line < canvas_height);
 
-  size_t node_idx = tree_idx(start_node);
+  tree_addr_t node_idx = tree_idx(start_node);
   tree_node_t node = nodes[node_idx];
 
   size_t byte_idx = floor((float)node_idx / 8);
@@ -82,7 +82,7 @@ size_t debug_draw_tree_node(tree_node_t *nodes, uint8_t *colors,
   if (node.left != 0) {
     if (node.right == 0) {
       fprintf(stderr,
-              "Left child is non-zero but right child is zero for node %zu\n",
+              "Left child is non-zero but right child is zero for node %d\n",
               node_idx);
     }
     assert(node.right != 0);
@@ -146,7 +146,7 @@ size_t debug_draw_tree_node(tree_node_t *nodes, uint8_t *colors,
   if (node.right != 0) {
     if (node.left == 0) {
       fprintf(stderr,
-              "Right child is non-zero but left child is zero for node %zu\n",
+              "Right child is non-zero but left child is zero for node %d\n",
               node_idx);
     }
     assert(node.left != 0);
@@ -172,9 +172,9 @@ size_t debug_draw_tree_node(tree_node_t *nodes, uint8_t *colors,
   return padding;
 }
 size_t debug_node_blackheight(tree_node_t *nodes, uint8_t *colors,
-                              uint8_t *inited, size_t start_node, bool is_start,
-                              bool assert_uniform_height) {
-  size_t node_idx = tree_idx(start_node);
+                              uint8_t *inited, tree_addr_t start_node,
+                              bool is_start, bool assert_uniform_height) {
+  tree_addr_t node_idx = tree_idx(start_node);
   tree_node_t node = nodes[node_idx];
   size_t counter = 0;
 
@@ -200,7 +200,7 @@ size_t debug_node_blackheight(tree_node_t *nodes, uint8_t *colors,
     if (left_blackheight != right_blackheight) {
       fprintf(stderr,
               "Warning: Different blackheight discovered for children of node "
-              "%zu (%lld) - left %zu, right %zu\n",
+              "%d (%lld) - left %zu, right %zu\n",
               node_idx, node.hash, left_blackheight, right_blackheight);
     }
     if (assert_uniform_height) {

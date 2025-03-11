@@ -14,8 +14,8 @@ void setUp(void) {}
 void tearDown(void) {}
 
 void test_addr_idx_conversions(void) {
-  size_t addr = tree_addr(0);
-  size_t idx = tree_idx(addr);
+  tree_addr_t addr = tree_addr(0);
+  tree_idx_t idx = tree_idx(addr);
   TEST_ASSERT_EQUAL(0, idx);
 
   addr = tree_addr(1);
@@ -57,10 +57,10 @@ void test_add_first_member(void) {
   TEST_ASSERT_EQUAL(root_entry, 2);
   TEST_ASSERT_EQUAL(root_color, 0);
 
-  size_t left_idx = tree_idx(root_node.left);
+  tree_idx_t left_idx = tree_idx(root_node.left);
   TEST_ASSERT_NOT_EQUAL(left_idx, 0);
 
-  size_t right_idx = tree_idx(root_node.right);
+  tree_idx_t right_idx = tree_idx(root_node.right);
   TEST_ASSERT_NOT_EQUAL(right_idx, 0);
 
   TEST_ASSERT_EQUAL(set_has(set, 2), true);

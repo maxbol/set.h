@@ -1,5 +1,6 @@
 #include "set.h"
 #include "setdebug.h"
+#include "trace.h"
 #include "unity.h"
 #include <stdint.h>
 
@@ -78,12 +79,10 @@ void test_flags_maintained_after_realloc(void) {
 
   uint8_t old_colors[64];
   uint8_t old_inited[64];
-  uint8_t old_free_list[64];
 
   for (int i = 0; i < 64; i++) {
     old_colors[i] = set.colors[i];
     old_inited[i] = set.inited[i];
-    old_free_list[i] = set.free_list[i];
   }
 
   TEST_ASSERT_EQUAL(ALLOC_CHUNK, set.capacity);
@@ -96,6 +95,21 @@ void test_flags_maintained_after_realloc(void) {
   for (int i = 0; i < 64; i++) {
     TEST_ASSERT_EQUAL(old_colors[i], set.colors[i]);
     TEST_ASSERT_EQUAL(old_inited[i], set.inited[i]);
-    TEST_ASSERT_EQUAL(old_free_list[i], set.free_list[i]);
   }
+}
+
+void test_ridiculous_size(void) {
+  enable_tracing();
+
+  set_t set;
+  set_init(set, hash_fn, equals_fn);
+
+  for (uint32_t i = 0; i < 1024000; i++) {
+    set_add(set, i);
+  }
+  flush_trace_hist();
+
+  TEST_ASSERT_EQUAL(19,
+                    debug_node_blackheight(set.nodes, set.colors, set.inited,
+                                           set.root, true, true));
 }

@@ -12,7 +12,7 @@
 #define trace(...) trace_noop(__VA_ARGS__)
 #define start_trace(...) trace_noop(__VA_ARGS__)
 #define end_trace()
-#define flush_trace()
+#define lush_trace()
 #define set_trace_span(...) trace_noop(__VA_ARGS__)
 #define trace_result(...) trace_noop(__VA_ARGS__)
 #define trace_info(...) trace_noop(__VA_ARGS__)
@@ -45,17 +45,28 @@
 #define COLLISION_NIL                                                          \
   { .next = 0, .prev = 0 }
 
+#define TREE_SIZE_LIMIT 4294967295
+
+typedef uint32_t tree_addr_t;
+typedef uint32_t tree_idx_t;
+
 typedef struct {
-  size_t left;
-  size_t right;
-  size_t parent;
+  tree_addr_t left;
+  tree_addr_t right;
+  tree_addr_t parent;
   uint64_t hash;
 } tree_node_t;
 
 typedef struct {
-  size_t next;
-  size_t prev;
+  tree_addr_t next;
+  tree_addr_t prev;
 } tree_collision_t;
+
+typedef struct {
+  tree_addr_t next;
+  tree_addr_t prev;
+  bool free;
+} tree_freelistslot_t;
 
 #define ALLOC_CHUNK 512
 
@@ -64,11 +75,11 @@ typedef struct {
 
 #define map_add(map, key_var, value_var)                                       \
   do {                                                                         \
-    size_t leaf_idx = tree_add(map, key_var, map_alloc_new_node,               \
-                               map_write_key, map_find_duplicate);             \
+    tree_addr_t leaf_addr = tree_add(map, key_var, map_alloc_new_node,         \
+                                     map_write_key, map_find_duplicate);       \
                                                                                \
-    if (tree_is_valid_addr(leaf_idx)) {                                        \
-      map_write_value(map, leaf_idx, value_var);                               \
+    if (tree_is_valid_addr(leaf_addr)) {                                       \
+      map_write_value(map, leaf_addr, value_var);                              \
     }                                                                          \
   } while (0)
 
@@ -77,7 +88,7 @@ typedef struct {
 
 #define map_clear_entry(map, addr)                                             \
   do {                                                                         \
-    size_t clear_idx = tree_idx(addr);                                         \
+    tree_idx_t clear_idx = tree_idx(addr);                                     \
     assert(map.capacity > clear_idx);                                          \
     memset(&map.keys[clear_idx], 0x00, sizeof(typeof(map.keys)));              \
     memset(&map.values[clear_idx], 0x00, sizeof(typeof(map.values)));          \
@@ -94,8 +105,8 @@ typedef struct {
 
 #define map_empty(map) tree_empty(map, map_init, map_free)
 
-#define map_find_duplicate(map, node_idx, key_var)                             \
-  tree_find_duplicate(map, node_idx, key_var, map_get_key, keys)
+#define map_find_duplicate(map, node_addr, key_var)                            \
+  tree_find_duplicate(map, node_addr, key_var, map_get_key, keys)
 
 #define map_find_node_entry(map, hash_value, key_var)                          \
   tree_find_node_entry(map, hash_value, key_var, map_find_duplicate)
@@ -111,10 +122,10 @@ typedef struct {
 #define map_get(map, key)                                                      \
   ({                                                                           \
     uint64_t hash = map.hash_fn(key);                                          \
-    size_t node_idx = map_find_node_entry(map, hash, key);                     \
+    tree_addr_t node_addr = map_find_node_entry(map, hash, key);               \
     typeof(map.values) retval = NULL;                                          \
-    if (tree_is_valid_addr(node_idx)) {                                        \
-      size_t idx = tree_idx(node_idx);                                         \
+    if (tree_is_valid_addr(node_addr)) {                                       \
+      tree_idx_t idx = tree_idx(node_addr);                                    \
       assert(map.capacity > idx);                                              \
       retval = &map.values[idx];                                               \
     }                                                                          \
@@ -123,14 +134,14 @@ typedef struct {
 
 #define map_get_key(map, addr)                                                 \
   ({                                                                           \
-    size_t idx = tree_idx(addr);                                               \
+    tree_idx_t idx = tree_idx(addr);                                           \
     assert(map.capacity > idx);                                                \
     map.keys[idx];                                                             \
   })
 
 #define map_get_value(map, addr)                                               \
   ({                                                                           \
-    size_t idx = tree_idx(addr);                                               \
+    tree_idx_t idx = tree_idx(addr);                                           \
     assert(map.capacity > idx);                                                \
     map.values[idx];                                                           \
   })
@@ -138,8 +149,8 @@ typedef struct {
 #define map_has(map, key)                                                      \
   ({                                                                           \
     uint64_t hash = map.hash_fn(key);                                          \
-    size_t node_idx = map_find_node_entry(map, hash, key);                     \
-    tree_is_valid_addr(node_idx);                                              \
+    tree_addr_t node_addr = map_find_node_entry(map, hash, key);               \
+    tree_is_valid_addr(node_addr);                                             \
   })
 
 #define map_init(set, hash_function, equals_function)                          \
@@ -175,14 +186,14 @@ typedef struct {
 
 #define map_write_key(map, addr, key)                                          \
   do {                                                                         \
-    size_t map_write_key_idx = tree_idx(addr);                                 \
+    tree_idx_t map_write_key_idx = tree_idx(addr);                             \
     assert(map.capacity > map_write_key_idx);                                  \
     map.keys[map_write_key_idx] = key;                                         \
   } while (0)
 
 #define map_write_value(map, addr, value)                                      \
   do {                                                                         \
-    size_t map_write_value_idx = tree_idx(addr);                               \
+    tree_idx_t map_write_value_idx = tree_idx(addr);                           \
     assert(map.capacity > map_write_value_idx);                                \
     map.values[map_write_value_idx] = value;                                   \
   } while (0)
@@ -196,7 +207,7 @@ typedef struct {
 
 #define set_clear_entry(set, addr)                                             \
   do {                                                                         \
-    size_t clear_idx = tree_idx(addr);                                         \
+    tree_idx_t clear_idx = tree_idx(addr);                                     \
     assert(set.capacity > clear_idx);                                          \
     memset(&set.entries[clear_idx], 0x00, sizeof(typeof(set.entries)));        \
     tree_write_inited(set, addr, false);                                       \
@@ -210,8 +221,8 @@ typedef struct {
 
 #define set_empty(set) tree_empty(set, set_init, set_free)
 
-#define set_find_duplicate(set, node_idx, entry_var)                           \
-  tree_find_duplicate(set, node_idx, entry_var, set_get_entry, entries)
+#define set_find_duplicate(set, node_addr, entry_var)                          \
+  tree_find_duplicate(set, node_addr, entry_var, set_get_entry, entries)
 
 #define set_find_node_entry(set, hash_value, entry_var)                        \
   tree_find_node_entry(set, hash_value, entry_var, set_find_duplicate)
@@ -225,7 +236,7 @@ typedef struct {
 
 #define set_get_entry(set, addr)                                               \
   ({                                                                           \
-    size_t idx = tree_idx(addr);                                               \
+    tree_idx_t idx = tree_idx(addr);                                           \
     assert(set.capacity > idx);                                                \
     set.entries[idx];                                                          \
   })
@@ -233,8 +244,8 @@ typedef struct {
 #define set_has(set, entry)                                                    \
   ({                                                                           \
     uint64_t hash = set.hash_fn(entry);                                        \
-    size_t node_idx = set_find_node_entry(set, hash, entry);                   \
-    tree_is_valid_addr(node_idx);                                              \
+    tree_addr_t node_addr = set_find_node_entry(set, hash, entry);             \
+    tree_is_valid_addr(node_addr);                                             \
   })
 
 #define set_init(set, hash_function, equals_function)                          \
@@ -262,7 +273,7 @@ typedef struct {
 
 #define set_write_entry(set, addr, entry)                                      \
   do {                                                                         \
-    size_t set_write_entry_idx = tree_idx(addr);                               \
+    tree_idx_t set_write_entry_idx = tree_idx(addr);                           \
     assert(set.capacity > set_write_entry_idx);                                \
     set.entries[set_write_entry_idx] = entry;                                  \
   } while (0)
@@ -270,63 +281,69 @@ typedef struct {
 #define tree_add(tree, entry_var, alloc_new_node, tree_write_entry,            \
                  find_duplicate)                                               \
   ({                                                                           \
-    size_t retval = 0;                                                         \
+    tree_addr_t retval = 0;                                                    \
     do {                                                                       \
       uint64_t hash = tree.hash_fn(entry_var);                                 \
-      start_trace(hash, trace_span("Adding entry"));                           \
-      size_t leaf_idx = tree_find_node(tree, hash);                            \
+      start_trace(1, hash, trace_span("Adding entry"));                        \
+      tree_addr_t leaf_addr = tree_find_node(tree, hash);                      \
                                                                                \
-      if (tree_is_inited(tree, leaf_idx) != 0) {                               \
-        size_t duplicate_idx = find_duplicate(tree, leaf_idx, entry_var);      \
+      if (tree_is_inited(tree, leaf_addr) != 0) {                              \
+        start_trace(18, hash, trace_span("Handle deduplication"));             \
+        tree_addr_t duplicate_addr =                                           \
+            find_duplicate(tree, leaf_addr, entry_var);                        \
                                                                                \
-        if (tree_is_valid_addr(duplicate_idx)) {                               \
+        if (tree_is_valid_addr(duplicate_addr)) {                              \
           retval = 0;                                                          \
           trace(trace_info("Entry already exists in tree"));                   \
+          end_trace();                                                         \
           end_trace();                                                         \
           break;                                                               \
         }                                                                      \
                                                                                \
-        tree_collision_t *collision = tree_get_collision(tree, leaf_idx);      \
+        tree_collision_t *collision = tree_get_collision(tree, leaf_addr);     \
                                                                                \
         while (tree_is_valid_addr(collision->next)) {                          \
-          leaf_idx = collision->next;                                          \
-          collision = tree_get_collision(tree, leaf_idx);                      \
+          leaf_addr = collision->next;                                         \
+          collision = tree_get_collision(tree, leaf_addr);                     \
         }                                                                      \
-        size_t next;                                                           \
-        size_t n = tree_get_node(tree, leaf_idx)->right;                       \
+        tree_addr_t next;                                                      \
+        tree_addr_t n = tree_get_node(tree, leaf_addr)->right;                 \
         while (tree_is_valid_addr(n)) {                                        \
           next = n;                                                            \
           n = tree_get_node(tree, next)->left;                                 \
         }                                                                      \
         collision->next = next;                                                \
-        tree_get_collision(tree, next)->prev = leaf_idx;                       \
-        leaf_idx = next;                                                       \
+        tree_get_collision(tree, next)->prev = leaf_addr;                      \
+        leaf_addr = next;                                                      \
+        end_trace();                                                           \
       }                                                                        \
                                                                                \
-      size_t left_idx = alloc_new_node(tree);                                  \
-      size_t right_idx = alloc_new_node(tree);                                 \
-      tree_get_node(tree, left_idx)->parent = leaf_idx;                        \
-      tree_get_node(tree, right_idx)->parent = leaf_idx;                       \
-      tree_write_color(tree, left_idx, NODE_COLOR_BLACK);                      \
-      tree_write_color(tree, right_idx, NODE_COLOR_BLACK);                     \
+      start_trace(19, hash, trace_span("Allocing new leaf nodes"));            \
+      tree_addr_t left_addr = alloc_new_node(tree);                            \
+      tree_addr_t right_addr = alloc_new_node(tree);                           \
+      end_trace();                                                             \
+      tree_get_node(tree, left_addr)->parent = leaf_addr;                      \
+      tree_get_node(tree, right_addr)->parent = leaf_addr;                     \
+      tree_write_color(tree, left_addr, NODE_COLOR_BLACK);                     \
+      tree_write_color(tree, right_addr, NODE_COLOR_BLACK);                    \
                                                                                \
-      tree_node_t *leaf = tree_get_node(tree, leaf_idx);                       \
+      tree_node_t *leaf = tree_get_node(tree, leaf_addr);                      \
                                                                                \
       *leaf = (tree_node_t){                                                   \
           .hash = hash,                                                        \
-          .left = left_idx,                                                    \
+          .left = left_addr,                                                   \
           .parent = leaf->parent,                                              \
-          .right = right_idx,                                                  \
+          .right = right_addr,                                                 \
       };                                                                       \
                                                                                \
-      tree_write_entry(tree, leaf_idx, entry_var);                             \
-      tree_write_inited(tree, leaf_idx, true);                                 \
-      tree_write_color(tree, leaf_idx, NODE_COLOR_RED);                        \
+      tree_write_entry(tree, leaf_addr, entry_var);                            \
+      tree_write_inited(tree, leaf_addr, true);                                \
+      tree_write_color(tree, leaf_addr, NODE_COLOR_RED);                       \
                                                                                \
-      tree_rb_insert_fixup(tree, leaf_idx);                                    \
+      tree_rb_insert_fixup(tree, leaf_addr);                                   \
       end_trace();                                                             \
                                                                                \
-      retval = leaf_idx;                                                       \
+      retval = leaf_addr;                                                      \
                                                                                \
     } while (0);                                                               \
     retval;                                                                    \
@@ -336,37 +353,51 @@ typedef struct {
 
 #define tree_alloc_new_node(set, create_entry, realloc_entries)                \
   ({                                                                           \
-    size_t retval;                                                             \
-    bool found_free = false;                                                   \
-    for (size_t i = 0; i < set.capacity; i++) {                                \
-      size_t byte_idx = floor((float)i / 8);                                   \
+    tree_addr_t retval = set.free_list_start;                                  \
+    if (tree_is_valid_addr(retval)) {                                          \
+      start_trace(20, 0, trace_span("Using existing free slot\n"));            \
+      tree_idx_t i = tree_idx(retval);                                         \
+      tree_freelistslot_t *free_node = &set.free_list[i];                      \
+      tree_idx_t byte_idx = floor((float)i / 8);                               \
       uint8_t bit_idx = i % 8;                                                 \
       uint8_t bmask = 1 << bit_idx;                                            \
-      if ((set.free_list[byte_idx] & bmask) == 0) {                            \
-        found_free = true;                                                     \
-        set.free_list[byte_idx] |= bmask;                                      \
-        set.inited[byte_idx] &= ~bmask;                                        \
-        set.colors[byte_idx] &= ~bmask;                                        \
-        set.nodes[i] = (tree_node_t)NODE_NIL;                                  \
-        set.collisions[i] = (tree_collision_t)COLLISION_NIL;                   \
-        create_entry(set, i);                                                  \
-        retval = tree_addr(i);                                                 \
-        break;                                                                 \
-      }                                                                        \
-    }                                                                          \
-    if (!found_free) {                                                         \
-      size_t i = set.capacity;                                                 \
+      set.inited[byte_idx] &= ~bmask;                                          \
+      set.colors[byte_idx] &= ~bmask;                                          \
+      set.nodes[i] = (tree_node_t)NODE_NIL;                                    \
+      set.collisions[i] = (tree_collision_t)COLLISION_NIL;                     \
+      set.free_list_start = free_node->next;                                   \
+      *free_node = (tree_freelistslot_t){0};                                   \
+      create_entry(set, i);                                                    \
+      end_trace();                                                             \
+    } else {                                                                   \
+      start_trace(21, 0, trace_span("Reallocating data"));                     \
+      tree_idx_t i = set.capacity;                                             \
       retval = tree_addr(i);                                                   \
       set.capacity *= 2;                                                       \
-      size_t flag_cap = set.capacity / 8;                                      \
-      size_t flag_i = i / 8;                                                   \
-      size_t flag_offset = flag_cap - flag_i;                                  \
+      tree_idx_t flag_cap = set.capacity / 8;                                  \
+      tree_idx_t flag_i = i / 8;                                               \
+      tree_idx_t flag_offset = flag_cap - flag_i;                              \
                                                                                \
       set.nodes = realloc(set.nodes, sizeof(tree_node_t) * set.capacity);      \
       set.collisions =                                                         \
           realloc(set.collisions, sizeof(tree_collision_t) * set.capacity);    \
+      set.free_list =                                                          \
+          realloc(set.free_list, sizeof(tree_freelistslot_t) * set.capacity);  \
+                                                                               \
+      set.free_list_start = tree_addr(i + 1);                                  \
+                                                                               \
+      set.free_list[i] =                                                       \
+          (tree_freelistslot_t){.prev = 0, .next = 0, .free = 0};              \
+      set.free_list[i + 1] = (tree_freelistslot_t){                            \
+          .prev = 0, .next = tree_addr(i + 2), .free = 1};                     \
+      for (tree_idx_t idx = i + 2; idx < set.capacity - 1; idx++) {            \
+        set.free_list[idx] = (tree_freelistslot_t){.prev = tree_addr(idx - 1), \
+                                                   .next = tree_addr(idx + 1), \
+                                                   .free = 1};                 \
+      }                                                                        \
+      set.free_list[set.capacity - 1] = (tree_freelistslot_t){                 \
+          .prev = tree_addr(set.capacity - 2), .next = 0, .free = 1};          \
       realloc_entries(set);                                                    \
-      set.free_list = realloc(set.free_list, flag_cap);                        \
       set.colors = realloc(set.colors, flag_cap);                              \
       set.inited = realloc(set.inited, flag_cap);                              \
       memset(&set.colors[flag_i], 0x00, flag_offset);                          \
@@ -374,9 +405,7 @@ typedef struct {
       set.nodes[i] = (tree_node_t)NODE_NIL;                                    \
       set.collisions[i] = (tree_collision_t)COLLISION_NIL;                     \
       create_entry(set, i);                                                    \
-                                                                               \
-      memset(&set.free_list[flag_i], 0x00, flag_offset);                       \
-      set.free_list[flag_i] = 1;                                               \
+      end_trace();                                                             \
     }                                                                          \
     retval;                                                                    \
   })
@@ -388,36 +417,36 @@ typedef struct {
     typeof(tree.equals_fn) equals_function = tree.equals_fn;                   \
                                                                                \
     clone.capacity = tree.capacity;                                            \
-    size_t flag_cap = clone.capacity / 8;                                      \
+    tree_idx_t flag_cap = clone.capacity / 8;                                  \
                                                                                \
     clone.root = tree.root;                                                    \
     clone.nodes = malloc(sizeof(tree_node_t) * tree.capacity);                 \
     clone.collisions = malloc(sizeof(tree_collision_t) * tree.capacity);       \
     clone.entries = malloc(sizeof(typeof(*clone.entries)) * tree.capacity);    \
-    clone.free_list = malloc(flag_cap);                                        \
+    clone.free_list = malloc(sizeof(tree_freelistslot_t) * tree.capacity);     \
     clone.colors = malloc(flag_cap);                                           \
     clone.inited = malloc(flag_cap);                                           \
     malloc_entries(clone);                                                     \
                                                                                \
-    memset(clone.free_list, 0x00, flag_cap);                                   \
+    memset(clone.free_list, 0x00,                                              \
+           sizeof(tree_freelistslot_t) * tree.capacity);                       \
     memset(clone.colors, 0x00, flag_cap);                                      \
     memset(clone.inited, 0x00, flag_cap);                                      \
                                                                                \
-    for (size_t i = 0; i < flag_cap; i++) {                                    \
-      if (tree.free_list[i] == 0x00) {                                         \
+    clone.free_list_start = tree.free_list_start;                              \
+                                                                               \
+    for (tree_idx_t i = 0; i < tree.capacity; i++) {                           \
+      if (tree.free_list[i].free == 1) {                                       \
+        clone.free_list[i] = tree.free_list[i];                                \
         continue;                                                              \
       }                                                                        \
-                                                                               \
+      tree_addr_t a = tree_addr(i);                                            \
       clone.free_list[i] = tree.free_list[i];                                  \
-      clone.colors[i] = tree.colors[i];                                        \
-      clone.inited[i] = tree.inited[i];                                        \
-                                                                               \
-      for (size_t j = 0; j < 8; j++) {                                         \
-        size_t slot = (i * 8) + j;                                             \
-        clone.collisions[slot] = tree.collisions[slot];                        \
-        clone.nodes[slot] = tree.nodes[slot];                                  \
-        write_entry(clone, slot + 1, get_entry(tree, slot + 1));               \
-      }                                                                        \
+      clone.collisions[i] = tree.collisions[i];                                \
+      clone.nodes[i] = tree.nodes[i];                                          \
+      write_entry(clone, a, get_entry(tree, a));                               \
+      tree_write_color(clone, a, tree_is_red(tree, a));                        \
+      tree_write_inited(clone, a, tree_is_inited(tree, a));                    \
     }                                                                          \
                                                                                \
     clone.hash_fn = hash_function;                                             \
@@ -426,12 +455,12 @@ typedef struct {
     clone;                                                                     \
   })
 
-#define tree_delete_fixup(tree, node_idx)                                      \
+#define tree_delete_fixup(tree, node_addr)                                     \
   do {                                                                         \
-    while (node_idx != tree.root) {                                            \
-      tree_node_t *node = tree_get_node(tree, node_idx);                       \
-      start_trace(node->hash, trace_span("Fixing up %lld"), node->hash);       \
-      bool color = tree_is_red(tree, node_idx);                                \
+    while (node_addr != tree.root) {                                           \
+      tree_node_t *node = tree_get_node(tree, node_addr);                      \
+      start_trace(2, node->hash, trace_span("Fixing up %lld"), node->hash);    \
+      bool color = tree_is_red(tree, node_addr);                               \
       if (color != NODE_COLOR_BLACK) {                                         \
         trace(trace_info("Node is red, stop traversing"));                     \
         end_trace();                                                           \
@@ -439,50 +468,50 @@ typedef struct {
       }                                                                        \
       if (node == tree_get_sibling(tree, node, left)) {                        \
         trace(trace_info("Node is in parents left subtree"));                  \
-        tree_delete_fixup_dir(tree, node_idx, right, left);                    \
+        tree_delete_fixup_dir(tree, node_addr, right, left);                   \
       } else {                                                                 \
-        tree_delete_fixup_dir(tree, node_idx, left, right);                    \
+        tree_delete_fixup_dir(tree, node_addr, left, right);                   \
       }                                                                        \
       end_trace();                                                             \
     }                                                                          \
-    tree_write_color(tree, node_idx, NODE_COLOR_BLACK);                        \
+    tree_write_color(tree, node_addr, NODE_COLOR_BLACK);                       \
   } while (0)
 
-#define tree_delete_fixup_dir(tree, node_idx, f_branch, f_direction)           \
+#define tree_delete_fixup_dir(tree, node_addr, f_branch, f_direction)          \
   do {                                                                         \
-    tree_node_t *node = tree_get_node(tree, node_idx);                         \
+    tree_node_t *node = tree_get_node(tree, node_addr);                        \
     tree_node_t *parent = tree_get_node(tree, node->parent);                   \
-    size_t sibling_idx = parent->f_branch;                                     \
+    tree_addr_t sibling_addr = parent->f_branch;                               \
                                                                                \
-    if (tree_is_red(tree, sibling_idx) == NODE_COLOR_RED) {                    \
-      tree_write_color(tree, sibling_idx, NODE_COLOR_BLACK);                   \
+    if (tree_is_red(tree, sibling_addr) == NODE_COLOR_RED) {                   \
+      tree_write_color(tree, sibling_addr, NODE_COLOR_BLACK);                  \
       tree_write_color(tree, node->parent, NODE_COLOR_RED);                    \
       tree_rot(tree, node->parent, f_branch, f_direction);                     \
-      sibling_idx = tree_get_node(tree, node->parent)->f_branch;               \
+      sibling_addr = tree_get_node(tree, node->parent)->f_branch;              \
     }                                                                          \
                                                                                \
-    tree_node_t *sibling = tree_get_node(tree, sibling_idx);                   \
+    tree_node_t *sibling = tree_get_node(tree, sibling_addr);                  \
                                                                                \
     if (tree_is_red(tree, sibling->f_branch) == NODE_COLOR_BLACK &&            \
         tree_is_red(tree, sibling->f_direction) == NODE_COLOR_BLACK) {         \
-      tree_write_color(tree, sibling_idx, NODE_COLOR_RED);                     \
-      node_idx = node->parent;                                                 \
-      node = tree_get_node(tree, node_idx);                                    \
+      tree_write_color(tree, sibling_addr, NODE_COLOR_RED);                    \
+      node_addr = node->parent;                                                \
+      node = tree_get_node(tree, node_addr);                                   \
     } else {                                                                   \
       if (tree_is_red(tree, sibling->f_branch) == NODE_COLOR_BLACK) {          \
         tree_write_color(tree, sibling->f_direction, NODE_COLOR_BLACK);        \
-        tree_write_color(tree, sibling_idx, NODE_COLOR_RED);                   \
-        tree_rot(tree, sibling_idx, f_direction, f_branch);                    \
-        sibling_idx =                                                          \
-            tree_get_node(tree, tree_get_node(tree, node_idx)->parent)         \
+        tree_write_color(tree, sibling_addr, NODE_COLOR_RED);                  \
+        tree_rot(tree, sibling_addr, f_direction, f_branch);                   \
+        sibling_addr =                                                         \
+            tree_get_node(tree, tree_get_node(tree, node_addr)->parent)        \
                 ->f_branch;                                                    \
-        sibling = tree_get_node(tree, sibling_idx);                            \
+        sibling = tree_get_node(tree, sibling_addr);                           \
       }                                                                        \
-      tree_write_color(tree, sibling_idx, tree_is_red(tree, node->parent));    \
+      tree_write_color(tree, sibling_addr, tree_is_red(tree, node->parent));   \
       tree_write_color(tree, node->parent, NODE_COLOR_BLACK);                  \
       tree_write_color(tree, sibling->f_branch, NODE_COLOR_BLACK);             \
       tree_rot(tree, node->parent, f_branch, f_direction);                     \
-      node_idx = tree.root;                                                    \
+      node_addr = tree.root;                                                   \
     }                                                                          \
   } while (0)
 
@@ -494,18 +523,18 @@ typedef struct {
     set_init(tree, hash_fn, equals_fn);                                        \
   } while (0)
 
-#define tree_find_duplicate(tree, node_idx, entry_var, tree_get_entry,         \
+#define tree_find_duplicate(tree, node_addr, entry_var, tree_get_entry,        \
                             f_entries)                                         \
   ({                                                                           \
-    size_t retval = 0;                                                         \
+    tree_addr_t retval = 0;                                                    \
     typeof(*tree.f_entries) entry_val = (entry_var);                           \
                                                                                \
     for (int i = 0; i < 2; i++) {                                              \
-      size_t next = node_idx;                                                  \
+      tree_addr_t next = node_addr;                                            \
                                                                                \
       do {                                                                     \
         typeof(*tree.f_entries) entry = tree_get_entry(tree, next);            \
-        if ((next != node_idx || i == 0) &&                                    \
+        if ((next != node_addr || i == 0) &&                                   \
             tree.equals_fn(entry, entry_val)) {                                \
           retval = next;                                                       \
           break;                                                               \
@@ -523,15 +552,15 @@ typedef struct {
 
 #define tree_find_node(tree, hash_value)                                       \
   ({                                                                           \
-    size_t n_idx = tree.root;                                                  \
-    size_t find_node_retval;                                                   \
-    while (tree_is_valid_addr(n_idx)) {                                        \
-      find_node_retval = n_idx;                                                \
-      tree_node_t *node = tree_get_node(tree, n_idx);                          \
+    tree_addr_t n_addr = tree.root;                                            \
+    tree_addr_t find_node_retval;                                              \
+    while (tree_is_valid_addr(n_addr)) {                                       \
+      find_node_retval = n_addr;                                               \
+      tree_node_t *node = tree_get_node(tree, n_addr);                         \
       if ((hash_value) > node->hash) {                                         \
-        n_idx = node->right;                                                   \
+        n_addr = node->right;                                                  \
       } else if ((hash_value) < node->hash) {                                  \
-        n_idx = node->left;                                                    \
+        n_addr = node->left;                                                   \
       } else {                                                                 \
         break;                                                                 \
       }                                                                        \
@@ -542,10 +571,10 @@ typedef struct {
 #define tree_find_node_entry(tree, hash_value, entry_var, tree_find_duplicate) \
   ({                                                                           \
     uint64_t hash_val = (hash_value);                                          \
-    size_t node_idx = tree_find_node(tree, hash_val);                          \
-    size_t retval = 0;                                                         \
-    if (tree_is_inited(tree, node_idx)) {                                      \
-      retval = tree_find_duplicate(tree, node_idx, entry_var);                 \
+    tree_addr_t node_addr = tree_find_node(tree, hash_val);                    \
+    tree_addr_t retval = 0;                                                    \
+    if (tree_is_inited(tree, node_addr)) {                                     \
+      retval = tree_find_duplicate(tree, node_addr, entry_var);                \
     }                                                                          \
     retval;                                                                    \
   })
@@ -563,19 +592,24 @@ typedef struct {
 
 #define tree_free_node(tree, addr)                                             \
   do {                                                                         \
-    size_t idx = tree_idx(addr);                                               \
-    size_t free_list_byte_idx = floor((float)idx / 8);                         \
-    size_t free_list_bit_idx = idx % 8;                                        \
-    uint8_t bmask = 1 << free_list_bit_idx;                                    \
-    tree.free_list[free_list_byte_idx] &= ~bmask;                              \
+    tree_idx_t idx = tree_idx(addr);                                           \
+    tree_addr_t current_first = tree.free_list_start;                          \
+    if (tree_is_valid_addr(current_first)) {                                   \
+      tree.free_list[tree_idx(current_first)].prev = addr;                     \
+    }                                                                          \
+    tree.free_list_start = addr;                                               \
+    tree_freelistslot_t *slot = &tree.free_list[idx];                          \
+    slot->free = 1;                                                            \
+    slot->prev = 0;                                                            \
+    slot->next = current_first;                                                \
   } while (0)
 
 #define tree_get_collision(tree, addr)                                         \
   ({                                                                           \
-    size_t idx = tree_idx(addr);                                               \
+    tree_idx_t idx = tree_idx(addr);                                           \
     if (tree.capacity <= idx) {                                                \
       printf(                                                                  \
-          "Warning: tree capacity (%zu) is less than or equal to index %zu\n", \
+          "Warning: tree capacity (%zu) is less than or equal to index %d\n",  \
           tree.capacity, idx);                                                 \
     }                                                                          \
     assert(tree.capacity > idx);                                               \
@@ -584,10 +618,10 @@ typedef struct {
 
 #define tree_get_node(tree, addr)                                              \
   ({                                                                           \
-    size_t a = (addr);                                                         \
+    tree_addr_t a = (addr);                                                    \
     tree_node_t *retval = NULL;                                                \
     if (tree_is_valid_addr(a)) {                                               \
-      size_t idx = tree_idx(a);                                                \
+      tree_idx_t idx = tree_idx(a);                                            \
       assert(tree.capacity > idx);                                             \
       retval = &tree.nodes[idx];                                               \
     }                                                                          \
@@ -605,11 +639,25 @@ typedef struct {
     tree.capacity = ALLOC_CHUNK;                                               \
     tree.nodes = malloc(sizeof(tree_node_t) * tree.capacity);                  \
     tree.collisions = malloc(sizeof(tree_collision_t) * tree.capacity);        \
-    tree.free_list = malloc(tree.capacity / 8);                                \
+    tree.free_list = malloc(sizeof(tree_freelistslot_t) * tree.capacity);      \
     tree.colors = malloc(tree.capacity / 8);                                   \
     tree.inited = malloc(tree.capacity / 8);                                   \
+    tree.free_list_start = tree_addr(0);                                       \
+    tree.free_list[0] = (tree_freelistslot_t){                                 \
+        .prev = 0,                                                             \
+        .next = tree_addr(1),                                                  \
+        .free = 1,                                                             \
+    };                                                                         \
+    for (uint32_t i = 1; i < tree.capacity - 1; i++) {                         \
+      tree.free_list[i] = (tree_freelistslot_t){                               \
+          .prev = tree_addr(i - 1), .next = tree_addr(i + 1), .free = 1};      \
+    }                                                                          \
+    tree.free_list[tree.capacity - 1] = (tree_freelistslot_t){                 \
+        .prev = tree_addr(tree.capacity - 2),                                  \
+        .next = 0,                                                             \
+        .free = 1,                                                             \
+    };                                                                         \
     malloc_entries(tree);                                                      \
-    memset(tree.free_list, 0x00, tree.capacity / 8);                           \
     memset(tree.colors, 0x00, tree.capacity / 8);                              \
     memset(tree.inited, 0x00, tree.capacity / 8);                              \
     tree.root = alloc_new_node(tree);                                          \
@@ -619,28 +667,31 @@ typedef struct {
 
 #define tree_is_inited(tree, addr) tree_read_bitval(tree, addr, inited)
 #define tree_is_red(tree, addr) tree_read_bitval(tree, addr, colors)
-#define tree_is_valid_addr(addr) ((size_t)addr != 0)
+#define tree_is_valid_addr(addr) ((tree_addr_t)addr != 0)
 
 #define tree_last(tree) tree_ult(tree, right)
 
-#define tree_max_in_branch(tree, node_idx)                                     \
-  tree_ult_in_branch(tree, node_idx, right);
-#define tree_min_in_branch(tree, node_idx)                                     \
-  tree_ult_in_branch(tree, node_idx, left);
+#define tree_max_in_branch(tree, node_addr)                                    \
+  tree_ult_in_branch(tree, node_addr, right);
+#define tree_min_in_branch(tree, node_addr)                                    \
+  tree_ult_in_branch(tree, node_addr, left);
 
-#define tree_next(tree, node_idx) tree_seq(tree, node_idx, right, left)
-#define tree_next_in_branch(tree, node_idx)                                    \
-  tree_seq_in_branch(tree, node_idx, right, left);
+#define tree_next(tree, node_addr) tree_seq(tree, node_addr, right, left)
+#define tree_next_in_branch(tree, node_addr)                                   \
+  tree_seq_in_branch(tree, node_addr, right, left);
 
-#define tree_prev(tree, node_idx) tree_seq(tree, node_idx, left, right)
-#define tree_prev_in_branch(tree, node_idx)                                    \
-  tree_seq_in_branch(tree, node_idx, left, right);
+#define tree_prev(tree, node_addr) tree_seq(tree, node_addr, left, right)
+#define tree_prev_in_branch(tree, node_addr)                                   \
+  tree_seq_in_branch(tree, node_addr, left, right);
 
-#define tree_rb_insert_fixup(tree, node_idx)                                   \
+#define tree_rb_insert_fixup(tree, node_addr)                                  \
   do {                                                                         \
+    start_trace(17, tree_get_node(tree, node_addr)->hash,                      \
+                "Running insert fixup\n");                                     \
     while (true) {                                                             \
-      tree_node_t *node = tree_get_node(tree, node_idx);                       \
-      start_trace(node->hash, trace_span("Fixing up node %lld"), node->hash);  \
+      tree_node_t *node = tree_get_node(tree, node_addr);                      \
+      start_trace(3, node->hash, trace_span("Fixing up node %lld"),            \
+                  node->hash);                                                 \
       tree_node_t *parent = tree_get_node(tree, node->parent);                 \
       if (parent == NULL ||                                                    \
           tree_is_red(tree, node->parent) != NODE_COLOR_RED) {                 \
@@ -651,67 +702,69 @@ typedef struct {
       if (parent == tree_get_sibling(tree, parent, left)) {                    \
         trace(trace_info(                                                      \
             "Parent is in its parents left tree, doing fixup_left"));          \
-        tree_rb_insert_fixup_left(tree, node_idx);                             \
+        tree_rb_insert_fixup_left(tree, node_addr);                            \
       } else {                                                                 \
         trace(trace_info("Parent is in its parents right tree, "               \
                          "doing fixup_right"));                                \
-        tree_rb_insert_fixup_right(tree, node_idx);                            \
+        tree_rb_insert_fixup_right(tree, node_addr);                           \
       }                                                                        \
       end_trace();                                                             \
     }                                                                          \
-    start_trace(tree_get_node(tree, tree.root)->hash,                          \
+    start_trace(4, tree_get_node(tree, tree.root)->hash,                       \
                 trace_span("Setting root to black"));                          \
     tree_write_color(tree, tree.root, NODE_COLOR_BLACK);                       \
     end_trace();                                                               \
+    end_trace();                                                               \
   } while (0)
 
-#define tree_rb_insert_fixup_dir(tree, node_idx, f_branch, f_direction)        \
+#define tree_rb_insert_fixup_dir(tree, node_addr, f_branch, f_direction)       \
   do {                                                                         \
-    tree_node_t *node = tree_get_node(tree, node_idx);                         \
-    size_t parent_idx = node->parent;                                          \
+    tree_node_t *node = tree_get_node(tree, node_addr);                        \
+    tree_addr_t parent_addr = node->parent;                                    \
                                                                                \
-    tree_node_t *parent = tree_get_node(tree, parent_idx);                     \
-    size_t grandparent_idx = parent->parent;                                   \
+    tree_node_t *parent = tree_get_node(tree, parent_addr);                    \
+    tree_addr_t grandparent_addr = parent->parent;                             \
                                                                                \
-    tree_node_t *grandparent = tree_get_node(tree, grandparent_idx);           \
-    size_t uncle_idx = grandparent->f_branch;                                  \
+    tree_node_t *grandparent = tree_get_node(tree, grandparent_addr);          \
+    tree_addr_t uncle_addr = grandparent->f_branch;                            \
                                                                                \
-    if (tree_is_red(tree, uncle_idx) == NODE_COLOR_RED) {                      \
-      start_trace(node->hash, trace_span("Uncle is red."));                    \
+    if (tree_is_red(tree, uncle_addr) == NODE_COLOR_RED) {                     \
+      start_trace(5, node->hash, trace_span("Uncle is red."));                 \
                                                                                \
       trace(trace_result("Setting parent to black."));                         \
-      tree_write_color(tree, parent_idx, NODE_COLOR_BLACK);                    \
+      tree_write_color(tree, parent_addr, NODE_COLOR_BLACK);                   \
       trace(trace_result("Setting uncle to black."));                          \
-      tree_write_color(tree, uncle_idx, NODE_COLOR_BLACK);                     \
+      tree_write_color(tree, uncle_addr, NODE_COLOR_BLACK);                    \
       trace(trace_result("Setting grandparent to red."));                      \
-      tree_write_color(tree, grandparent_idx, NODE_COLOR_RED);                 \
+      tree_write_color(tree, grandparent_addr, NODE_COLOR_RED);                \
                                                                                \
-      node_idx = grandparent_idx;                                              \
+      node_addr = grandparent_addr;                                            \
                                                                                \
       end_trace();                                                             \
     } else {                                                                   \
-      start_trace(node->hash, trace_span("Uncle is black."));                  \
+      start_trace(6, node->hash, trace_span("Uncle is black."));               \
                                                                                \
       if (node == tree_get_sibling(tree, node, f_branch)) {                    \
         start_trace(                                                           \
-            node->hash,                                                        \
+            7, node->hash,                                                     \
             trace_span("Triangle case (node is aligned in the opposite way "   \
                        "as its parent)"));                                     \
                                                                                \
-        node_idx = node->parent;                                               \
+        node_addr = node->parent;                                              \
                                                                                \
-        node = tree_get_node(tree, node_idx);                                  \
+        node = tree_get_node(tree, node_addr);                                 \
                                                                                \
         trace(trace_result("Updating node pointer to parent: %lld"),           \
               node->hash);                                                     \
         set_trace_span(node->hash);                                            \
-        start_trace(node->hash, trace_span("Rotating node to " #f_direction)); \
+        start_trace(8, node->hash,                                             \
+                    trace_span("Rotating node to " #f_direction));             \
                                                                                \
-        tree_rot(tree, node_idx, f_branch, f_direction);                       \
+        tree_rot(tree, node_addr, f_branch, f_direction);                      \
                                                                                \
-        parent_idx = node->parent;                                             \
+        parent_addr = node->parent;                                            \
                                                                                \
-        parent = tree_get_node(tree, parent_idx);                              \
+        parent = tree_get_node(tree, parent_addr);                             \
                                                                                \
         end_trace();                                                           \
         end_trace();                                                           \
@@ -720,18 +773,18 @@ typedef struct {
       assert(parent->parent != 0);                                             \
                                                                                \
       start_trace(                                                             \
-          node->hash,                                                          \
+          9, node->hash,                                                       \
           trace_span("Line case (node is aligned same way as its parent)"));   \
                                                                                \
       trace(trace_result("Setting parent color to black"));                    \
                                                                                \
-      tree_write_color(tree, parent_idx, NODE_COLOR_BLACK);                    \
+      tree_write_color(tree, parent_addr, NODE_COLOR_BLACK);                   \
                                                                                \
       trace(trace_result("Setting grandparent color to red"));                 \
                                                                                \
       tree_write_color(tree, parent->parent, NODE_COLOR_RED);                  \
                                                                                \
-      start_trace(tree_get_node(tree, parent->parent)->hash,                   \
+      start_trace(10, tree_get_node(tree, parent->parent)->hash,               \
                   trace_span("Rotating grandparent of %lld to " #f_branch),    \
                   node->hash);                                                 \
                                                                                \
@@ -739,20 +792,21 @@ typedef struct {
                                                                                \
       end_trace();                                                             \
       end_trace();                                                             \
+      end_trace();                                                             \
     }                                                                          \
   } while (0)
 
-#define tree_rb_insert_fixup_left(tree, node_idx)                              \
-  tree_rb_insert_fixup_dir(tree, node_idx, right, left)
+#define tree_rb_insert_fixup_left(tree, node_addr)                             \
+  tree_rb_insert_fixup_dir(tree, node_addr, right, left)
 
-#define tree_rb_insert_fixup_right(tree, node_idx)                             \
-  tree_rb_insert_fixup_dir(tree, node_idx, left, right)
+#define tree_rb_insert_fixup_right(tree, node_addr)                            \
+  tree_rb_insert_fixup_dir(tree, node_addr, left, right)
 
 #define tree_read_bitval(tree, addr, f_member)                                 \
   ({                                                                           \
-    size_t idx = tree_idx(addr);                                               \
-    size_t byte_idx = floor((float)idx / 8);                                   \
-    size_t bit_idx = idx % 8;                                                  \
+    tree_idx_t idx = tree_idx(addr);                                           \
+    tree_idx_t byte_idx = floor((float)idx / 8);                               \
+    tree_idx_t bit_idx = idx % 8;                                              \
     uint8_t mask = 1 << bit_idx;                                               \
     (tree.f_member[byte_idx] & mask) != 0;                                     \
   })
@@ -760,21 +814,21 @@ typedef struct {
 #define tree_remove(tree, entry, find_node_entry, clear_entry)                 \
   do {                                                                         \
     uint64_t hash = tree.hash_fn(entry);                                       \
-    start_trace(hash, trace_span("Removing entry %lld"), hash);                \
-    size_t node_idx = find_node_entry(tree, hash, entry);                      \
+    start_trace(11, hash, trace_span("Removing entry %lld"), hash);            \
+    tree_addr_t node_addr = find_node_entry(tree, hash, entry);                \
                                                                                \
-    if (!tree_is_valid_addr(node_idx)) {                                       \
+    if (!tree_is_valid_addr(node_addr)) {                                      \
       trace(trace_info("Entry does not exist in tree"));                       \
       end_trace();                                                             \
       break;                                                                   \
     }                                                                          \
                                                                                \
-    tree_node_t *node = tree_get_node(tree, node_idx);                         \
+    tree_node_t *node = tree_get_node(tree, node_addr);                        \
                                                                                \
-    size_t color_sample_idx = node_idx;                                        \
-    size_t fixup_target_idx;                                                   \
+    tree_addr_t color_sample_addr = node_addr;                                 \
+    tree_addr_t fixup_target_addr;                                             \
                                                                                \
-    bool color_sample_is_red = tree_is_red(tree, node_idx);                    \
+    bool color_sample_is_red = tree_is_red(tree, node_addr);                   \
                                                                                \
     if (!tree_is_inited(tree, node->left)) {                                   \
       trace(trace_info(                                                        \
@@ -782,65 +836,65 @@ typedef struct {
       tree_node_t *right = tree_get_node(tree, node->right);                   \
       trace(trace_result("Setting fixup target to right child: %lld"),         \
             right->hash);                                                      \
-      fixup_target_idx = node->right;                                          \
-      start_trace(node_idx,                                                    \
+      fixup_target_addr = node->right;                                         \
+      start_trace(12, node_addr,                                               \
                   trace_span("Transplanting right child (node %lld) here"),    \
                   right->hash);                                                \
-      tree_transplant(tree, node_idx, node->right);                            \
+      tree_transplant(tree, node_addr, node->right);                           \
       end_trace();                                                             \
     } else if (!tree_is_inited(tree, node->right)) {                           \
       trace(trace_info("Only right child is NIL node"));                       \
       tree_node_t *left = tree_get_node(tree, node->left);                     \
       trace(trace_result("Setting fixup target to left child: %lld"),          \
             left->hash);                                                       \
-      fixup_target_idx = node->left;                                           \
-      start_trace(node_idx,                                                    \
+      fixup_target_addr = node->left;                                          \
+      start_trace(13, node_addr,                                               \
                   trace_span("Transplanting left child (node %lld) here"),     \
                   left->hash);                                                 \
-      tree_transplant(tree, node_idx, node->left);                             \
+      tree_transplant(tree, node_addr, node->left);                            \
       end_trace();                                                             \
     } else {                                                                   \
       trace(trace_info("Neither of children are NIL nodes"));                  \
       assert(tree_is_inited(tree, node->right));                               \
-      color_sample_idx = tree_min_in_branch(tree, node->right);                \
-      tree_node_t *color_sample = tree_get_node(tree, color_sample_idx);       \
-      color_sample_is_red = tree_is_red(tree, color_sample_idx);               \
+      color_sample_addr = tree_min_in_branch(tree, node->right);               \
+      tree_node_t *color_sample = tree_get_node(tree, color_sample_addr);      \
+      color_sample_is_red = tree_is_red(tree, color_sample_addr);              \
       trace(trace_info("Found color sample as minimum of right child: %lld - " \
                        "color is %s"),                                         \
             color_sample->hash, color_sample_is_red ? "red" : "black");        \
-      fixup_target_idx = color_sample->right;                                  \
-      tree_node_t *fixup_target = tree_get_node(tree, fixup_target_idx);       \
+      fixup_target_addr = color_sample->right;                                 \
+      tree_node_t *fixup_target = tree_get_node(tree, fixup_target_addr);      \
       trace(trace_result(                                                      \
                 "Setting fixup target to right child of color sample: %lld"),  \
             fixup_target->hash);                                               \
                                                                                \
-      if (color_sample_idx == node->right) {                                   \
+      if (color_sample_addr == node->right) {                                  \
         trace(trace_info("Color sample is right child of node"));              \
         trace(                                                                 \
             trace_result(                                                      \
                 "Setting fixup target (%lld) parent to color sample (%lld)"),  \
             fixup_target->hash, color_sample->hash);                           \
-        fixup_target->parent = color_sample_idx;                               \
+        fixup_target->parent = color_sample_addr;                              \
       } else {                                                                 \
         trace(trace_info("Color sample is not right child of node"));          \
-        start_trace(color_sample->hash,                                        \
+        start_trace(14, color_sample->hash,                                    \
                     trace_span("Transplanting %lld to color sample (%lld)"),   \
                     fixup_target->hash, color_sample->hash);                   \
-        tree_transplant(tree, color_sample_idx, fixup_target_idx);             \
+        tree_transplant(tree, color_sample_addr, fixup_target_addr);           \
         end_trace();                                                           \
         trace(trace_result(                                                    \
                   "2-way binding right child of color sample (%lld) to "       \
                   "right child of node (%lld)"),                               \
               color_sample->hash, node->hash);                                 \
         color_sample->right = node->right;                                     \
-        tree_get_node(tree, color_sample->right)->parent = color_sample_idx;   \
+        tree_get_node(tree, color_sample->right)->parent = color_sample_addr;  \
       }                                                                        \
                                                                                \
       start_trace(                                                             \
-          node->hash,                                                          \
+          15, node->hash,                                                      \
           trace_span("Transplanting color sample (%lld) to node (%lld)"),      \
           color_sample->hash, node->hash);                                     \
-      tree_transplant(tree, node_idx, color_sample_idx);                       \
+      tree_transplant(tree, node_addr, color_sample_addr);                     \
       end_trace();                                                             \
                                                                                \
       trace(trace_result(                                                      \
@@ -848,27 +902,28 @@ typedef struct {
                 "child of node (%lld)"),                                       \
             color_sample->hash, node->hash);                                   \
       color_sample->left = node->left;                                         \
-      tree_get_node(tree, color_sample->left)->parent = color_sample_idx;      \
+      tree_get_node(tree, color_sample->left)->parent = color_sample_addr;     \
       trace(trace_result("Setting color of color sample (%lld) to %s"),        \
             color_sample->hash,                                                \
-            tree_is_red(tree, node_idx) ? "red" : "black");                    \
-      tree_write_color(tree, color_sample_idx, tree_is_red(tree, node_idx));   \
+            tree_is_red(tree, node_addr) ? "red" : "black");                   \
+      tree_write_color(tree, color_sample_addr, tree_is_red(tree, node_addr)); \
     }                                                                          \
                                                                                \
     if (!color_sample_is_red) {                                                \
       trace(trace_info("Original color of color sample was black, fixing up "  \
                        "fix up target"));                                      \
-      start_trace(fixup_target_idx, trace_span("Fixing up fixup target"));     \
-      tree_delete_fixup(tree, fixup_target_idx);                               \
+      start_trace(16, fixup_target_addr,                                       \
+                  trace_span("Fixing up fixup target"));                       \
+      tree_delete_fixup(tree, fixup_target_addr);                              \
       end_trace();                                                             \
     } else {                                                                   \
       trace(trace_info(                                                        \
           "Original color of color sample was red, no fixup required"));       \
     }                                                                          \
                                                                                \
-    tree_collision_t *collision = tree_get_collision(tree, node_idx);          \
-    size_t collision_next = collision->next;                                   \
-    size_t collision_prev = collision->prev;                                   \
+    tree_collision_t *collision = tree_get_collision(tree, node_addr);         \
+    tree_addr_t collision_next = collision->next;                              \
+    tree_addr_t collision_prev = collision->prev;                              \
     if (tree_is_valid_addr(collision_prev)) {                                  \
       tree_get_collision(tree, collision_prev)->next = collision_next;         \
     }                                                                          \
@@ -877,60 +932,61 @@ typedef struct {
     }                                                                          \
                                                                                \
     trace(trace_result("Freeing node"));                                       \
-    tree_free_node(tree, node_idx);                                            \
+    tree_free_node(tree, node_addr);                                           \
     trace(trace_result("Clearing entry"));                                     \
-    clear_entry(tree, node_idx);                                               \
+    clear_entry(tree, node_addr);                                              \
                                                                                \
     end_trace();                                                               \
   } while (0)
 
-#define tree_rot(tree, node_idx, f_branch, f_direction)                        \
+#define tree_rot(tree, node_addr, f_branch, f_direction)                       \
   do {                                                                         \
-    size_t n_idx = (node_idx);                                                 \
+    tree_addr_t n_addr = (node_addr);                                          \
     const char *align_branch = #f_branch;                                      \
     const char *align_direction = #f_direction;                                \
-    tree_node_t *rot_node = tree_get_node(tree, n_idx);                        \
-    size_t f_branch_idx = rot_node->f_branch;                                  \
-    assert(tree_is_valid_addr(f_branch_idx));                                  \
-    tree_node_t *f_branch = tree_get_node(tree, f_branch_idx);                 \
+    tree_node_t *rot_node = tree_get_node(tree, n_addr);                       \
+    tree_addr_t f_branch_addr = rot_node->f_branch;                            \
+    assert(tree_is_valid_addr(f_branch_addr));                                 \
+    tree_node_t *f_branch = tree_get_node(tree, f_branch_addr);                \
                                                                                \
     trace(trace_result("Binding %s field to %s child of %s child"),            \
           align_branch, align_direction, align_branch);                        \
     rot_node->f_branch = f_branch->f_direction;                                \
     if (tree_is_valid_addr(f_branch->f_direction)) {                           \
-      tree_get_node(tree, f_branch->f_direction)->parent = n_idx;              \
+      tree_get_node(tree, f_branch->f_direction)->parent = n_addr;             \
     }                                                                          \
                                                                                \
     f_branch->parent = rot_node->parent;                                       \
     if (!tree_is_valid_addr(rot_node->parent)) {                               \
       trace(trace_result("Binding root to %s child"), align_branch);           \
-      tree.root = f_branch_idx;                                                \
+      tree.root = f_branch_addr;                                               \
     } else if (rot_node == tree_get_sibling(tree, rot_node, f_direction)) {    \
       trace(trace_result("Binding %s field of parent to %s child"),            \
             align_direction, align_branch);                                    \
-      tree_get_node(tree, rot_node->parent)->f_direction = f_branch_idx;       \
+      tree_get_node(tree, rot_node->parent)->f_direction = f_branch_addr;      \
     } else {                                                                   \
       trace(trace_result("Binding %s field of parent to %s child"),            \
             align_branch, align_branch);                                       \
-      tree_get_node(tree, rot_node->parent)->f_branch = f_branch_idx;          \
+      tree_get_node(tree, rot_node->parent)->f_branch = f_branch_addr;         \
     }                                                                          \
                                                                                \
     trace(trace_result("Binding %s field of %s child to this node"),           \
           align_direction, align_branch);                                      \
-    f_branch->f_direction = n_idx;                                             \
-    rot_node->parent = f_branch_idx;                                           \
+    f_branch->f_direction = n_addr;                                            \
+    rot_node->parent = f_branch_addr;                                          \
   } while (0)
 
-#define tree_rot_left(tree, node_idx) tree_rot(tree, node_idx, right, left)
-#define tree_rot_right(tree, node_idx) tree_rot(tree, node_idx, left, right)
+#define tree_rot_left(tree, node_addr) tree_rot(tree, node_addr, right, left)
+#define tree_rot_right(tree, node_addr) tree_rot(tree, node_addr, left, right)
 
-#define tree_seq(tree, node_idx, f_branch, f_direction)                        \
+#define tree_seq(tree, node_addr, f_branch, f_direction)                       \
   ({                                                                           \
-    size_t addr = tree_seq_in_branch(tree, node_idx, f_branch, f_direction);   \
+    tree_addr_t addr =                                                         \
+        tree_seq_in_branch(tree, node_addr, f_branch, f_direction);            \
                                                                                \
     if (!tree_is_valid_addr(addr)) {                                           \
-      size_t scan_addr = node_idx;                                             \
-      size_t next = tree_get_node(tree, node_idx)->parent;                     \
+      tree_addr_t scan_addr = node_addr;                                       \
+      tree_addr_t next = tree_get_node(tree, node_addr)->parent;               \
       while (tree_is_valid_addr(next)) {                                       \
         tree_node_t *next_node = tree_get_node(tree, next);                    \
         if (next_node->f_direction == scan_addr) {                             \
@@ -949,11 +1005,11 @@ typedef struct {
     addr;                                                                      \
   })
 
-#define tree_seq_in_branch(tree, node_idx, f_branch, f_direction)              \
+#define tree_seq_in_branch(tree, node_addr, f_branch, f_direction)             \
   ({                                                                           \
-    size_t idx = 0;                                                            \
-    if (tree_is_inited(tree, node_idx) == 1) {                                 \
-      tree_node_t *node = tree_get_node(tree, node_idx);                       \
+    tree_addr_t idx = 0;                                                       \
+    if (tree_is_inited(tree, node_addr) == 1) {                                \
+      tree_node_t *node = tree_get_node(tree, node_addr);                      \
                                                                                \
       if (tree_is_inited(tree, node->f_branch) == 1) {                         \
         idx = tree_ult_in_branch(tree, node->f_branch, f_direction);           \
@@ -964,7 +1020,7 @@ typedef struct {
 
 #define tree_size(tree)                                                        \
   ({                                                                           \
-    size_t cursor = tree_first(tree);                                          \
+    tree_addr_t cursor = tree_first(tree);                                     \
     size_t size = 0;                                                           \
     while (tree_is_valid_addr(cursor) && tree_is_inited(tree, cursor)) {       \
       size++;                                                                  \
@@ -973,36 +1029,37 @@ typedef struct {
     size;                                                                      \
   })
 
-#define tree_transplant(tree, dest_idx, src_idx)                               \
+#define tree_transplant(tree, dest_addr, src_addr)                             \
   do {                                                                         \
-    tree_node_t *dest = tree_get_node(tree, dest_idx);                         \
+    tree_node_t *dest = tree_get_node(tree, dest_addr);                        \
     if (!tree_is_valid_addr(dest->parent)) {                                   \
-      tree.root = src_idx;                                                     \
+      tree.root = src_addr;                                                    \
     } else {                                                                   \
       tree_node_t *parent = tree_get_node(tree, dest->parent);                 \
-      if (dest_idx == parent->left) {                                          \
-        parent->left = src_idx;                                                \
+      if (dest_addr == parent->left) {                                         \
+        parent->left = src_addr;                                               \
       } else {                                                                 \
-        parent->right = src_idx;                                               \
+        parent->right = src_addr;                                              \
       }                                                                        \
     }                                                                          \
-    tree_node_t *src = tree_get_node(tree, src_idx);                           \
+    tree_node_t *src = tree_get_node(tree, src_addr);                          \
     src->parent = dest->parent;                                                \
   } while (0)
 
 #define tree_type_fields()                                                     \
   tree_node_t *nodes;                                                          \
+  tree_freelistslot_t *free_list;                                              \
   tree_collision_t *collisions;                                                \
-  size_t root;                                                                 \
+  tree_addr_t free_list_start;                                                 \
+  tree_addr_t root;                                                            \
   size_t capacity;                                                             \
   uint8_t *colors;                                                             \
-  uint8_t *free_list;                                                          \
   uint8_t *inited;
 
 #define tree_ult(tree, f_direction)                                            \
   ({                                                                           \
-    size_t cursor = tree.root;                                                 \
-    size_t retval = 0;                                                         \
+    tree_addr_t cursor = tree.root;                                            \
+    tree_addr_t retval = 0;                                                    \
     while (tree_is_valid_addr(cursor) && tree_is_inited(tree, cursor)) {       \
       retval = cursor;                                                         \
       cursor = tree_get_node(tree, cursor)->f_direction;                       \
@@ -1010,9 +1067,9 @@ typedef struct {
     retval;                                                                    \
   })
 
-#define tree_ult_in_branch(tree, node_idx, f_direction)                        \
+#define tree_ult_in_branch(tree, node_addr, f_direction)                       \
   ({                                                                           \
-    size_t idx = (node_idx);                                                   \
+    tree_addr_t idx = (node_addr);                                             \
     tree_node_t *node;                                                         \
     while (true) {                                                             \
       node = tree_get_node(tree, idx);                                         \
@@ -1026,9 +1083,9 @@ typedef struct {
 
 #define tree_write_bitval(tree, addr, f_member, val)                           \
   do {                                                                         \
-    size_t idx = tree_idx(addr);                                               \
-    size_t byte_idx = floor((float)idx / 8);                                   \
-    size_t bit_idx = idx % 8;                                                  \
+    tree_idx_t idx = tree_idx(addr);                                           \
+    tree_idx_t byte_idx = floor((float)idx / 8);                               \
+    tree_idx_t bit_idx = idx % 8;                                              \
     uint8_t mask = 1 << bit_idx;                                               \
     if (val == 1) {                                                            \
       tree.f_member[byte_idx] |= mask;                                         \
