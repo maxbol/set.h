@@ -67,7 +67,7 @@ void test_deleted_entry_returned_to_free_list(void) {
 
   tree_addr_t addr = tree_find_node(set, 3);
   TEST_ASSERT_EQUAL(true, tree_is_inited(set, addr));
-  TEST_ASSERT_EQUAL(0, set.free_list[tree_idx(addr)]);
+  TEST_ASSERT_EQUAL(FREE_LIST_STOP, set.free_list[tree_idx(addr)]);
 
   set_remove(set, 3);
 

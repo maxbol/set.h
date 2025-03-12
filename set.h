@@ -34,6 +34,7 @@
 #define NODE_COLOR_RED 1
 #define NODE_UNINITED 0
 #define NODE_INITED 1
+#define FREE_LIST_STOP 0
 
 #define NODE_NIL                                                               \
   {                                                                            \
@@ -45,7 +46,8 @@
 #define COLLISION_NIL                                                          \
   { .next = 0, .prev = 0 }
 
-#define TREE_SIZE_LIMIT 4294967295
+#define TREE_SPECIAL_IDX 1
+#define TREE_SIZE_LIMIT (UINT32_MAX - TREE_SPECIAL_IDX)
 
 typedef uint32_t tree_addr_t;
 typedef uint32_t tree_idx_t;
@@ -63,9 +65,6 @@ typedef struct {
 } tree_collision_t;
 
 #define ALLOC_CHUNK 512
-
-/* Actually freeing and remallocing seems like a really expensive way to
- * do this, let's try to find something better */
 
 #define map_add(map, key_var, value_var)                                       \
   do {                                                                         \
@@ -343,7 +342,7 @@ typedef struct {
     retval;                                                                    \
   })
 
-#define tree_addr(idx) (idx) + 1
+#define tree_addr(idx) (idx) + TREE_SPECIAL_IDX
 
 #define tree_alloc_new_node(set, create_entry, realloc_entries)                \
   ({                                                                           \
@@ -358,8 +357,16 @@ typedef struct {
       set.colors[byte_idx] &= ~bmask;                                          \
       set.nodes[i] = (tree_node_t)NODE_NIL;                                    \
       set.collisions[i] = (tree_collision_t)COLLISION_NIL;                     \
-      set.free_list_start = set.free_list[i];                                  \
-      set.free_list[i] = 0;                                                    \
+      if (i >= set.count) {                                                    \
+        if (i + 1 >= set.capacity) {                                           \
+          set.free_list_start = FREE_LIST_STOP;                                \
+        } else {                                                               \
+          set.free_list_start = retval + 1;                                    \
+        }                                                                      \
+      } else {                                                                 \
+        set.free_list_start = set.free_list[i];                                \
+      }                                                                        \
+      set.free_list[i] = FREE_LIST_STOP;                                       \
       create_entry(set, i);                                                    \
       end_trace();                                                             \
     } else {                                                                   \
@@ -371,31 +378,35 @@ typedef struct {
       tree_idx_t flag_i = i / 8;                                               \
       tree_idx_t flag_offset = flag_cap - flag_i;                              \
                                                                                \
+      start_trace(23, 0, trace_span("Realloc sys calls"));                     \
       set.nodes = realloc(set.nodes, sizeof(tree_node_t) * set.capacity);      \
       set.collisions =                                                         \
           realloc(set.collisions, sizeof(tree_collision_t) * set.capacity);    \
       set.free_list =                                                          \
           realloc(set.free_list, sizeof(tree_addr_t) * set.capacity);          \
-                                                                               \
-      set.free_list_start = tree_addr(i + 1);                                  \
-                                                                               \
-      start_trace(22, 0, trace_span("Free list expansion"));                   \
-      set.free_list[i] = 0;                                                    \
-      set.free_list[set.capacity - 1] = 0;                                     \
-      for (tree_idx_t idx = i + 1; idx < set.capacity - 1; idx++) {            \
-        set.free_list[idx] = tree_addr(idx + 1);                               \
-      }                                                                        \
-      end_trace();                                                             \
-      realloc_entries(set);                                                    \
       set.colors = realloc(set.colors, flag_cap);                              \
       set.inited = realloc(set.inited, flag_cap);                              \
+      end_trace();                                                             \
+                                                                               \
+      start_trace(22, 0, trace_span("Free list expansion"));                   \
+      set.free_list_start = tree_addr(i + 1);                                  \
+      set.free_list[i] = FREE_LIST_STOP;                                       \
+      set.free_list[set.capacity - 1] = FREE_LIST_STOP;                        \
+      end_trace();                                                             \
+                                                                               \
+      realloc_entries(set);                                                    \
+                                                                               \
       memset(&set.colors[flag_i], 0x00, flag_offset);                          \
       memset(&set.inited[flag_i], 0x00, flag_offset);                          \
+                                                                               \
       set.nodes[i] = (tree_node_t)NODE_NIL;                                    \
       set.collisions[i] = (tree_collision_t)COLLISION_NIL;                     \
+                                                                               \
       create_entry(set, i);                                                    \
+                                                                               \
       end_trace();                                                             \
     }                                                                          \
+    set.count++;                                                               \
     retval;                                                                    \
   })
 
@@ -608,23 +619,21 @@ typedef struct {
 #define tree_get_sibling(tree, node, f_branch)                                 \
   tree_get_node(tree, tree_get_node(tree, node->parent)->f_branch)
 
-#define tree_idx(addr) (addr) - 1
+#define tree_idx(addr) (addr) - TREE_SPECIAL_IDX
 
 #define tree_init(tree, hash_function, equals_function, malloc_entries,        \
                   alloc_new_node)                                              \
   do {                                                                         \
     tree.capacity = ALLOC_CHUNK;                                               \
+    tree.count = 0;                                                            \
     tree.nodes = malloc(sizeof(tree_node_t) * tree.capacity);                  \
     tree.collisions = malloc(sizeof(tree_collision_t) * tree.capacity);        \
     tree.free_list = malloc(sizeof(tree_addr_t) * tree.capacity);              \
     tree.colors = malloc(tree.capacity / 8);                                   \
     tree.inited = malloc(tree.capacity / 8);                                   \
     tree.free_list_start = tree_addr(0);                                       \
-    tree.free_list[0] = tree_addr(1);                                          \
-    for (uint32_t i = 1; i < tree.capacity - 1; i++) {                         \
-      tree.free_list[i] = tree_addr(i + 1);                                    \
-    }                                                                          \
-    tree.free_list[tree.capacity - 1] = 0;                                     \
+    memset(tree.free_list, 0x00, sizeof(tree_addr_t) * tree.capacity);         \
+    tree.free_list[tree.capacity - 1] = FREE_LIST_STOP;                        \
     malloc_entries(tree);                                                      \
     memset(tree.colors, 0x00, tree.capacity / 8);                              \
     memset(tree.inited, 0x00, tree.capacity / 8);                              \
@@ -635,7 +644,7 @@ typedef struct {
 
 #define tree_is_inited(tree, addr) tree_read_bitval(tree, addr, inited)
 #define tree_is_red(tree, addr) tree_read_bitval(tree, addr, colors)
-#define tree_is_valid_addr(addr) ((tree_addr_t)addr != 0)
+#define tree_is_valid_addr(addr) ((tree_addr_t)addr >= TREE_SPECIAL_IDX)
 
 #define tree_last(tree) tree_ult(tree, right)
 
@@ -1016,14 +1025,15 @@ typedef struct {
   } while (0)
 
 #define tree_type_fields()                                                     \
-  tree_node_t *nodes;                                                          \
   tree_addr_t *free_list;                                                      \
-  tree_collision_t *collisions;                                                \
   tree_addr_t free_list_start;                                                 \
   tree_addr_t root;                                                            \
-  size_t capacity;                                                             \
   uint8_t *colors;                                                             \
-  uint8_t *inited;
+  uint8_t *inited;                                                             \
+  tree_node_t *nodes;                                                          \
+  tree_collision_t *collisions;                                                \
+  size_t count;                                                                \
+  size_t capacity;
 
 #define tree_ult(tree, f_direction)                                            \
   ({                                                                           \

@@ -45,7 +45,7 @@ void test_deletes(void) {
   TEST_ASSERT_EQUAL(6, map_size(map));
   TEST_ASSERT_EQUAL(2, debug_node_blackheight(map.nodes, map.colors, map.inited,
                                               map.root, true, true));
-  TEST_ASSERT_EQUAL(3, map.root);
+  TEST_ASSERT_EQUAL(tree_find_node(map, 2), map.root);
   TEST_ASSERT_EQUAL(true, map_has(map, 3));
   TEST_ASSERT_NOT_NULL(map_get(map, 3));
 

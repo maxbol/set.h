@@ -16,14 +16,22 @@
         nativeBuildInputs = [
           pkg-config
           gnumake
+          stdmanpages
         ];
 
-        packages = [
-          clang-tools
-          llvm_17
-          lldb_17
-          bear
-        ];
+        packages =
+          [
+            clang-tools
+            llvm_17
+            lldb_17
+            bear
+            stdmanpages
+          ]
+          ++ (with llvmPackages_17; [
+            clang-manpages
+            llvm-manpages
+            lldb-manpages
+          ]);
       };
     };
   }));

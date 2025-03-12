@@ -17,13 +17,13 @@ void test_clone_set(void) {
 
   TEST_ASSERT_EQUAL(0x00, set.inited[0]);
   TEST_ASSERT_EQUAL(0x00, set.colors[0]);
-  TEST_ASSERT_EQUAL(0, set.free_list[0]);
+  TEST_ASSERT_EQUAL(FREE_LIST_STOP, set.free_list[0]);
 
   set_t clone = set_clone(set);
 
   TEST_ASSERT_EQUAL(0x00, clone.inited[0]);
   TEST_ASSERT_EQUAL(0x00, clone.colors[0]);
-  TEST_ASSERT_EQUAL(0, clone.free_list[0]);
+  TEST_ASSERT_EQUAL(FREE_LIST_STOP, clone.free_list[0]);
   TEST_ASSERT_EQUAL(set.free_list[0], clone.free_list[0]);
   TEST_ASSERT_EQUAL(set.colors[0], clone.colors[0]);
   TEST_ASSERT_EQUAL(set.inited[0], clone.inited[0]);

@@ -27,7 +27,7 @@ void test_initing_set(void) {
   set_t set;
   set_init(set, hash_fn, equals_fn);
 
-  TEST_ASSERT_EQUAL(1, set.root);
+  TEST_ASSERT_EQUAL(tree_addr(0), set.root);
 
   typeof(*set.nodes) root_node = *tree_get_node(set, set.root);
   uint8_t root_color = tree_is_red(set, set.root);
@@ -47,7 +47,7 @@ void test_add_first_member(void) {
   set_init(set, hash_fn, equals_fn);
   set_add(set, 2);
 
-  TEST_ASSERT_EQUAL(set.root, 1);
+  TEST_ASSERT_EQUAL(set.root, tree_addr(0));
 
   typeof(*set.nodes) root_node = *tree_get_node(set, set.root);
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
@@ -76,7 +76,7 @@ void test_add_second_larger_member(void) {
   set_add(set, 2);
   set_add(set, 6);
 
-  TEST_ASSERT_EQUAL(set.root, 1);
+  TEST_ASSERT_EQUAL(set.root, tree_addr(0));
 
   typeof(*set.nodes) root_node = *tree_get_node(set, set.root);
   typeof(*set.entries) root_entry = set_get_entry(set, set.root);
