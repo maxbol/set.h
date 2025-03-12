@@ -12,6 +12,7 @@ extern void tearDown(void);
 extern void test_delete_only_member(void);
 extern void test_delete_root_with_two_children(void);
 extern void test_delete_red_parent_of_two_black_childless(void);
+extern void test_deleted_entry_returned_to_free_list(void);
 
 
 /*=======Mock Management=====*/
@@ -76,6 +77,7 @@ int main(void)
   run_test(test_delete_only_member, "test_delete_only_member", 14);
   run_test(test_delete_root_with_two_children, "test_delete_root_with_two_children", 25);
   run_test(test_delete_red_parent_of_two_black_childless, "test_delete_red_parent_of_two_black_childless", 42);
+  run_test(test_deleted_entry_returned_to_free_list, "test_deleted_entry_returned_to_free_list", 58);
 
   return UNITY_END();
 }
