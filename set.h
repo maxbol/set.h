@@ -349,7 +349,7 @@ typedef struct {
   ({                                                                           \
     tree_addr_t retval = set.free_list_start;                                  \
     if (tree_is_valid_addr(retval)) {                                          \
-      start_trace(20, 0, trace_span("Using existing free slot\n"));            \
+      start_trace(20, retval, trace_span("Using existing free slot\n"));       \
       tree_idx_t i = tree_idx(retval);                                         \
       tree_idx_t byte_idx = floor((float)i / 8);                               \
       uint8_t bit_idx = i % 8;                                                 \
@@ -358,9 +358,8 @@ typedef struct {
       set.colors[byte_idx] &= ~bmask;                                          \
       set.nodes[i] = (tree_node_t)NODE_NIL;                                    \
       set.collisions[i] = (tree_collision_t)COLLISION_NIL;                     \
-      tree_idx_t start = tree_idx(set.free_list_start);                        \
-      set.free_list_start = set.free_list[start];                              \
-      set.free_list[start] = 0;                                                \
+      set.free_list_start = set.free_list[i];                                  \
+      set.free_list[i] = 0;                                                    \
       create_entry(set, i);                                                    \
       end_trace();                                                             \
     } else {                                                                   \
@@ -380,12 +379,13 @@ typedef struct {
                                                                                \
       set.free_list_start = tree_addr(i + 1);                                  \
                                                                                \
+      start_trace(22, 0, trace_span("Free list expansion"));                   \
       set.free_list[i] = 0;                                                    \
-      set.free_list[i + 1] = tree_addr(i + 2);                                 \
-      for (tree_idx_t idx = i + 2; idx < set.capacity - 1; idx++) {            \
+      set.free_list[set.capacity - 1] = 0;                                     \
+      for (tree_idx_t idx = i + 1; idx < set.capacity - 1; idx++) {            \
         set.free_list[idx] = tree_addr(idx + 1);                               \
       }                                                                        \
-      set.free_list[set.capacity - 1] = 0;                                     \
+      end_trace();                                                             \
       realloc_entries(set);                                                    \
       set.colors = realloc(set.colors, flag_cap);                              \
       set.inited = realloc(set.inited, flag_cap);                              \
@@ -424,10 +424,6 @@ typedef struct {
     clone.free_list_start = tree.free_list_start;                              \
                                                                                \
     for (tree_idx_t i = 0; i < tree.capacity; i++) {                           \
-      if (tree.free_list[i] != 0) {                                            \
-        clone.free_list[i] = tree.free_list[i];                                \
-        continue;                                                              \
-      }                                                                        \
       tree_addr_t a = tree_addr(i);                                            \
       clone.free_list[i] = tree.free_list[i];                                  \
       clone.collisions[i] = tree.collisions[i];                                \
@@ -628,7 +624,7 @@ typedef struct {
     for (uint32_t i = 1; i < tree.capacity - 1; i++) {                         \
       tree.free_list[i] = tree_addr(i + 1);                                    \
     }                                                                          \
-    tree.free_list[tree.capacity - 1] = tree.capacity - 1;                     \
+    tree.free_list[tree.capacity - 1] = 0;                                     \
     malloc_entries(tree);                                                      \
     memset(tree.colors, 0x00, tree.capacity / 8);                              \
     memset(tree.inited, 0x00, tree.capacity / 8);                              \
@@ -658,10 +654,11 @@ typedef struct {
 
 #define tree_rb_insert_fixup(tree, node_addr)                                  \
   do {                                                                         \
-    start_trace(17, tree_get_node(tree, node_addr)->hash,                      \
-                "Running insert fixup\n");                                     \
+    tree_addr_t addr = (node_addr);                                            \
+    start_trace(17, tree_get_node(tree, addr)->hash,                           \
+                trace_span("Running insert fixup\n"));                         \
     while (true) {                                                             \
-      tree_node_t *node = tree_get_node(tree, node_addr);                      \
+      tree_node_t *node = tree_get_node(tree, addr);                           \
       start_trace(3, node->hash, trace_span("Fixing up node %lld"),            \
                   node->hash);                                                 \
       tree_node_t *parent = tree_get_node(tree, node->parent);                 \
@@ -674,11 +671,11 @@ typedef struct {
       if (parent == tree_get_sibling(tree, parent, left)) {                    \
         trace(trace_info(                                                      \
             "Parent is in its parents left tree, doing fixup_left"));          \
-        tree_rb_insert_fixup_left(tree, node_addr);                            \
+        tree_rb_insert_fixup_left(tree, addr);                                 \
       } else {                                                                 \
         trace(trace_info("Parent is in its parents right tree, "               \
                          "doing fixup_right"));                                \
-        tree_rb_insert_fixup_right(tree, node_addr);                           \
+        tree_rb_insert_fixup_right(tree, addr);                                \
       }                                                                        \
       end_trace();                                                             \
     }                                                                          \

@@ -4,20 +4,17 @@ DEPS 					:= set.h
 CFLAGS 				:= -O0 -g -I. -I$(UNITY_ROOT)/src -I$(UNITY_ROOT)/extras/fixture/src -Wall -fmacro-backtrace-limit=0
 
 .PHONY: test clean all build_test
+.PRECIOUS: test_runners/%.c
 
 test: build_test
-	./out/test/test_insertions
-	./out/test/test_deletions
-	./out/test/test_hash_collisions
-	./out/test/test_string_set
-	./out/test/test_maps
+	./run-tests.sh
 
-build_test: out/test/test_insertions out/test/test_deletions out/test/test_hash_collisions out/test/test_string_set out/test/test_maps
+build_test: $(patsubst tests/%.c,out/test/test_%,$(wildcard tests/*.c)) 
 
 clean: 
 	rm -rf out/*
 
-all: test out/interactive_tester
+all: build_test out/interactive_tester
 
 out/interactive_tester: set.h setdebug.h setdebug.c trace.c trace.h interactive_tester/main.c
 	mkdir -p out

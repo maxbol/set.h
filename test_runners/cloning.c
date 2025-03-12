@@ -3,20 +3,13 @@
 /*=======Automagically Detected Files To Include=====*/
 #include "unity.h"
 #include "set.h"
+#include "setdebug.h"
 #include <stdint.h>
 
 /*=======External Functions This Runner Calls=====*/
 extern void setUp(void);
 extern void tearDown(void);
-extern void test_addr_idx_conversions(void);
-extern void test_initing_set(void);
-extern void test_add_first_member(void);
-extern void test_add_second_larger_member(void);
-extern void test_add_second_smaller_member(void);
-extern void test_add_third_member_line(void);
-extern void test_add_third_member_triangle(void);
-extern void test_larger_range_add(void);
-extern void test_insert_sizeidentity(void);
+extern void test_clone_set(void);
 
 
 /*=======Mock Management=====*/
@@ -77,16 +70,8 @@ static void run_test(UnityTestFunction func, const char* name, UNITY_LINE_TYPE l
 /*=======MAIN=====*/
 int main(void)
 {
-  UnityBegin("tests/inserts.c");
-  run_test(test_addr_idx_conversions, "test_addr_idx_conversions", 12);
-  run_test(test_initing_set, "test_initing_set", 22);
-  run_test(test_add_first_member, "test_add_first_member", 41);
-  run_test(test_add_second_larger_member, "test_add_second_larger_member", 70);
-  run_test(test_add_second_smaller_member, "test_add_second_smaller_member", 114);
-  run_test(test_add_third_member_line, "test_add_third_member_line", 155);
-  run_test(test_add_third_member_triangle, "test_add_third_member_triangle", 198);
-  run_test(test_larger_range_add, "test_larger_range_add", 236);
-  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 253);
+  UnityBegin("tests/cloning.c");
+  run_test(test_clone_set, "test_clone_set", 14);
 
   return UNITY_END();
 }
