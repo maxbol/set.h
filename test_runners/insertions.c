@@ -87,8 +87,8 @@ int main(void)
   run_test(test_add_second_smaller_member, "test_add_second_smaller_member", 116);
   run_test(test_add_third_member_line, "test_add_third_member_line", 157);
   run_test(test_add_third_member_triangle, "test_add_third_member_triangle", 202);
-  run_test(test_larger_range_add, "test_larger_range_add", 247);
-  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 269);
+  run_test(test_larger_range_add, "test_larger_range_add", 246);
+  run_test(test_insert_sizeidentity, "test_insert_sizeidentity", 267);
 
   return UNITY_END();
 }

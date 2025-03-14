@@ -11,8 +11,6 @@
 extern void setUp(void);
 extern void tearDown(void);
 extern void test_expand_buffer(void);
-extern void test_free_prevents_realloc(void);
-extern void test_flags_maintained_after_realloc(void);
 extern void test_ridiculous_size(void);
 extern void test_remove_speed(void);
 
@@ -77,10 +75,8 @@ int main(void)
 {
   UnityBegin("tests/buffer_expansion.c");
   run_test(test_expand_buffer, "test_expand_buffer", 15);
-  run_test(test_free_prevents_realloc, "test_free_prevents_realloc", 50);
-  run_test(test_flags_maintained_after_realloc, "test_flags_maintained_after_realloc", 69);
-  run_test(test_ridiculous_size, "test_ridiculous_size", 101);
-  run_test(test_remove_speed, "test_remove_speed", 116);
+  run_test(test_ridiculous_size, "test_ridiculous_size", 44);
+  run_test(test_remove_speed, "test_remove_speed", 66);
 
   return UNITY_END();
 }

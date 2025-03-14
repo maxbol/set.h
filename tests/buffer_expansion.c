@@ -20,12 +20,6 @@ void test_expand_buffer(void) {
     set_add(set, i);
   }
 
-  // Every set_add() allocs two new leaf nodes, so the amount of needed space
-  // for ALLOC_CHUNK no of calls to set_add() is ALLOC_CHUNK * 2. The call to
-  // add 255 triggers a realloc, and so does the call to add 511. Everytime a
-  // realloc happens, capacity is doubled.
-  TEST_ASSERT_EQUAL(ALLOC_CHUNK * 2 * 2, set.capacity);
-
   for (int i = 0; i < ALLOC_CHUNK; i++) {
     TEST_ASSERT_EQUAL(true, set_has(set, i));
     TEST_ASSERT_EQUAL(false, set_has(set, i + ALLOC_CHUNK));
@@ -47,66 +41,22 @@ void test_expand_buffer(void) {
   } while (tree_is_inited(set, set.root));
 }
 
-void test_free_prevents_realloc(void) {
-  set_t set;
-  set_init(set, hash_fn, equals_fn);
-
-  for (int i = 0; i < 255; i++) {
-    set_add(set, i);
-  }
-
-  TEST_ASSERT_EQUAL(ALLOC_CHUNK, set.capacity);
-
-  for (int i = 0; i < 255; i += 2) {
-    set_remove(set, i);
-  }
-
-  set_add(set, 255);
-
-  TEST_ASSERT_EQUAL(ALLOC_CHUNK, set.capacity);
-}
-
-void test_flags_maintained_after_realloc(void) {
-  set_t set;
-  set_init(set, hash_fn, equals_fn);
-
-  for (int i = 0; i < 255; i++) {
-    set_add(set, i);
-  }
-
-  // One more node alloc still doesn't push us over the limit
-  set_alloc_new_node(set);
-
-  uint8_t old_colors[64];
-  uint8_t old_inited[64];
-
-  for (int i = 0; i < 64; i++) {
-    old_colors[i] = set.colors[i];
-    old_inited[i] = set.inited[i];
-  }
-
-  TEST_ASSERT_EQUAL(ALLOC_CHUNK, set.capacity);
-
-  // This node alloc should trigger a realloc
-  set_alloc_new_node(set);
-
-  TEST_ASSERT_EQUAL(ALLOC_CHUNK * 2, set.capacity);
-
-  for (int i = 0; i < 64; i++) {
-    TEST_ASSERT_EQUAL(old_colors[i], set.colors[i]);
-    TEST_ASSERT_EQUAL(old_inited[i], set.inited[i]);
-  }
-}
-
 void test_ridiculous_size(void) {
   enable_tracing();
 
   set_t set;
   set_init(set, hash_fn, equals_fn);
 
+  struct timespec before, after;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &before);
+
   for (uint32_t i = 0; i < 1024000; i++) {
     set_add(set, i);
   }
+  clock_gettime(CLOCK_MONOTONIC_RAW, &after);
+  uint64_t before_ms = timespec_ms(before);
+  uint64_t after_ms = timespec_ms(after);
+  printf("Total time: %lld ms\n", after_ms - before_ms);
   flush_trace_hist();
 
   TEST_ASSERT_EQUAL(19,
@@ -118,9 +68,17 @@ void test_remove_speed(void) {
   set_t set;
   set_init(set, hash_fn, equals_fn);
 
+  struct timespec before, after;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &before);
+
   for (uint32_t i = 0; i < 1024000; i++) {
     set_add(set, i);
   }
+
+  clock_gettime(CLOCK_MONOTONIC_RAW, &after);
+  uint64_t before_ms = timespec_ms(before);
+  uint64_t after_ms = timespec_ms(after);
+  printf("Total time: %lld ms\n", after_ms - before_ms);
 
   enable_tracing();
   for (uint32_t i = 0; i < 1024000; i++) {
