@@ -1,5 +1,8 @@
 // TODO(2025-03-15, Max Bolotin): Look into whether we can get rid of nil nodes,
 // inited
+// // TODO(2025-03-15, Max Bolotin): set_add() called with set[i] as first arg
+// hangs on insert fixup, likely because of some shadowing issue in the macro.
+// What can we do to get around macro variable name shadowing all together?
 
 #ifndef GENERIC_SET_H
 #define GENERIC_SET_H
@@ -584,8 +587,6 @@ typedef struct {
 
 #define tree_map_mem(size)                                                     \
   ({                                                                           \
-    printf("Mapping %zu contigous bytes to virtual memory\n",                  \
-           (size_t)((float)TREE_NODE_LIMIT * size));                           \
     void *addr =                                                               \
         mmap(NULL, (size_t)((float)TREE_NODE_LIMIT * size),                    \
              PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);      \
