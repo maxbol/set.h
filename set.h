@@ -1,3 +1,6 @@
+// TODO(2025-03-15, Max Bolotin): Look into whether we can get rid of nil nodes,
+// inited
+
 #ifndef GENERIC_SET_H
 #define GENERIC_SET_H
 
@@ -108,11 +111,8 @@ typedef struct {
 
 #define map_free_data(map)                                                     \
   do {                                                                         \
-    printf("Unmapping map keys\n");                                            \
     munmap(map.keys, sizeof(typeof(*map.keys)) * TREE_NODE_LIMIT);             \
-    printf("Unmapping map values\n");                                          \
     munmap(map.values, sizeof(typeof(*map.values)) * TREE_NODE_LIMIT);         \
-    printf("Unmapping map entries OK\n");                                      \
   } while (0)
 
 #define map_get(map, key)                                                      \
@@ -213,9 +213,7 @@ typedef struct {
 
 #define set_free_data(set)                                                     \
   do {                                                                         \
-    printf("Unmapping entries...\n");                                          \
     munmap(set.entries, sizeof(typeof(*set.entries)) * TREE_NODE_LIMIT);       \
-    printf("Entry unmap OK!\n");                                               \
   } while (0)
 
 #define set_get_entry(set, addr)                                               \
@@ -525,19 +523,12 @@ typedef struct {
 
 #define tree_free(tree, free_data)                                             \
   do {                                                                         \
-    printf("Unmapping nodes\n");                                               \
     munmap(tree.nodes, sizeof(tree_node_t) * TREE_NODE_LIMIT);                 \
-    printf("Unmapping colors\n");                                              \
     munmap(tree.colors, (size_t)((float)TREE_NODE_LIMIT / 8));                 \
-    printf("Unmapping inited\n");                                              \
     munmap(tree.inited, (size_t)((float)TREE_NODE_LIMIT / 8));                 \
-    printf("Unmapping collisions\n");                                          \
     munmap(tree.collisions, sizeof(tree_collision_t) * TREE_NODE_LIMIT);       \
-    printf("Unmapping free_list\n");                                           \
     munmap(tree.free_list, sizeof(tree_addr_t) * TREE_NODE_LIMIT);             \
-    printf("Unmapping entries\n");                                             \
     free_data(tree);                                                           \
-    printf("Unmapping OK!\n");                                                 \
   } while (0)
 
 #define tree_free_node(tree, addr)                                             \
