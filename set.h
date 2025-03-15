@@ -48,7 +48,8 @@
   { .next = 0, .prev = 0 }
 
 #define TREE_SPECIAL_IDX 1
-#define TREE_SIZE_LIMIT 16777216
+#define TREE_ENTRY_LIMIT 16777210
+#define TREE_NODE_LIMIT ((TREE_ENTRY_LIMIT * 2) + 1)
 
 typedef uint32_t tree_addr_t;
 typedef uint32_t tree_idx_t;
@@ -105,10 +106,13 @@ typedef struct {
 
 #define map_free(map) tree_free(map, map_free_data)
 
-#define map_free_data(set)                                                     \
+#define map_free_data(map)                                                     \
   do {                                                                         \
-    munmap(set.keys, sizeof(typeof(set.keys)) * TREE_SIZE_LIMIT);              \
-    munmap(set.values, sizeof(typeof(set.values)) * TREE_SIZE_LIMIT);          \
+    printf("Unmapping map keys\n");                                            \
+    munmap(map.keys, sizeof(typeof(*map.keys)) * TREE_NODE_LIMIT);             \
+    printf("Unmapping map values\n");                                          \
+    munmap(map.values, sizeof(typeof(*map.values)) * TREE_NODE_LIMIT);         \
+    printf("Unmapping map entries OK\n");                                      \
   } while (0)
 
 #define map_get(map, key)                                                      \
@@ -209,7 +213,9 @@ typedef struct {
 
 #define set_free_data(set)                                                     \
   do {                                                                         \
-    munmap(set.entries, sizeof(typeof(set.entries)) * TREE_SIZE_LIMIT);        \
+    printf("Unmapping entries...\n");                                          \
+    munmap(set.entries, sizeof(typeof(*set.entries)) * TREE_NODE_LIMIT);       \
+    printf("Entry unmap OK!\n");                                               \
   } while (0)
 
 #define set_get_entry(set, addr)                                               \
@@ -344,15 +350,15 @@ typedef struct {
       set.nodes[i] = (tree_node_t)NODE_NIL;                                    \
       set.collisions[i] = (tree_collision_t)COLLISION_NIL;                     \
       if (i >= set.count) {                                                    \
-        if (i + 1 >= TREE_SIZE_LIMIT) {                                        \
+        if (i + 1 >= TREE_NODE_LIMIT) {                                        \
           set.free_list[i] = FREE_LIST_STOP;                                   \
         } else {                                                               \
           set.free_list[i] = retval + 1;                                       \
         }                                                                      \
+        set.count++;                                                           \
       }                                                                        \
       set.free_list_start = set.free_list[i];                                  \
       create_entry(set, i);                                                    \
-      set.count++;                                                             \
       end_trace();                                                             \
     }                                                                          \
     retval;                                                                    \
@@ -364,6 +370,7 @@ typedef struct {
     typeof(tree.hash_fn) hash_function = tree.hash_fn;                         \
     typeof(tree.equals_fn) equals_function = tree.equals_fn;                   \
                                                                                \
+    clone.count = tree.count;                                                  \
     clone.root = tree.root;                                                    \
     clone.nodes = tree_map_mem(sizeof(tree_node_t));                           \
     clone.collisions = tree_map_mem(sizeof(tree_collision_t));                 \
@@ -518,12 +525,19 @@ typedef struct {
 
 #define tree_free(tree, free_data)                                             \
   do {                                                                         \
-    munmap(tree.nodes, sizeof(tree_node_t) * TREE_SIZE_LIMIT);                 \
-    munmap(tree.colors, TREE_SIZE_LIMIT / 8);                                  \
-    munmap(tree.inited, TREE_SIZE_LIMIT / 8);                                  \
-    munmap(tree.collisions, sizeof(tree_collision_t) * TREE_SIZE_LIMIT);       \
-    munmap(tree.free_list, sizeof(tree_addr_t) * TREE_SIZE_LIMIT);             \
+    printf("Unmapping nodes\n");                                               \
+    munmap(tree.nodes, sizeof(tree_node_t) * TREE_NODE_LIMIT);                 \
+    printf("Unmapping colors\n");                                              \
+    munmap(tree.colors, (size_t)((float)TREE_NODE_LIMIT / 8));                 \
+    printf("Unmapping inited\n");                                              \
+    munmap(tree.inited, (size_t)((float)TREE_NODE_LIMIT / 8));                 \
+    printf("Unmapping collisions\n");                                          \
+    munmap(tree.collisions, sizeof(tree_collision_t) * TREE_NODE_LIMIT);       \
+    printf("Unmapping free_list\n");                                           \
+    munmap(tree.free_list, sizeof(tree_addr_t) * TREE_NODE_LIMIT);             \
+    printf("Unmapping entries\n");                                             \
     free_data(tree);                                                           \
+    printf("Unmapping OK!\n");                                                 \
   } while (0)
 
 #define tree_free_node(tree, addr)                                             \
@@ -562,8 +576,8 @@ typedef struct {
     tree.nodes = tree_map_mem(sizeof(tree_node_t));                            \
     tree.collisions = tree_map_mem(sizeof(tree_collision_t));                  \
     tree.free_list = tree_map_mem(sizeof(tree_addr_t));                        \
-    tree.colors = tree_map_mem(1 / 8);                                         \
-    tree.inited = tree_map_mem(1 / 8);                                         \
+    tree.colors = tree_map_mem((float)1 / 8);                                  \
+    tree.inited = tree_map_mem((float)1 / 8);                                  \
     tree.free_list_start = tree_addr(0);                                       \
     map_entries(tree);                                                         \
     tree.root = alloc_new_node(tree);                                          \
@@ -579,8 +593,11 @@ typedef struct {
 
 #define tree_map_mem(size)                                                     \
   ({                                                                           \
-    void *addr = mmap(NULL, TREE_SIZE_LIMIT * size, PROT_READ | PROT_WRITE,    \
-                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);                     \
+    printf("Mapping %zu contigous bytes to virtual memory\n",                  \
+           (size_t)((float)TREE_NODE_LIMIT * size));                           \
+    void *addr =                                                               \
+        mmap(NULL, (size_t)((float)TREE_NODE_LIMIT * size),                    \
+             PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);      \
     if (addr == MAP_FAILED) {                                                  \
       fprintf(stderr, "Buy more RAM lol\n");                                   \
       exit(1);                                                                 \

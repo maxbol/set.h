@@ -34,7 +34,13 @@ typedef struct {
 
 #define commit_to_hist()                                                       \
   do {                                                                         \
-    history_idx -= rewind_amount;                                              \
+    if (rewind_amount > 0) {                                                   \
+      for (uint32_t i = 0; i < rewind_amount; i++) {                           \
+        printf("Freeing set %zu\n", history_idx - i);                          \
+        set_free(history[history_idx - i]);                                    \
+      }                                                                        \
+      history_idx -= rewind_amount;                                            \
+    }                                                                          \
     rewind_limit = (rewind_limit - rewind_amount > 0)                          \
                        ? (rewind_limit - rewind_amount)                        \
                        : 0;                                                    \
@@ -43,6 +49,14 @@ typedef struct {
     history_idx++;                                                             \
                                                                                \
     size_t history_cursor = history_idx % 5;                                   \
+                                                                               \
+    if (history_idx > 4) {                                                     \
+      printf("Freeing set %zu\n", history_idx);                                \
+      set_t set = history[history_cursor];                                     \
+      printf("Freed set count: %zu\n", set.count);                             \
+      set_free(history[history_cursor]);                                       \
+      printf("Done\n");                                                        \
+    }                                                                          \
                                                                                \
     history[history_cursor] = set;                                             \
     trace_hist[history_cursor].len = sflush_trace(                             \
