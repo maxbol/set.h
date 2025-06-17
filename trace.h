@@ -5,6 +5,11 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#ifdef __linux__
+#include <inttypes.h>
+#include <time.h>
+#endif
+
 #define TRACE_MAX_DEPTH 10
 #define TRACE_MAX_ITEMS 100
 #define TRACE_MAX_STRLEN 250
@@ -38,9 +43,9 @@ extern uint64_t timespec_ms(struct timespec ts);
     if (ctx->span_cursor >= TRACE_MAX_OUT) {                                   \
       break;                                                                   \
     }                                                                          \
-    ctx->span_cursor +=                                                        \
-        snprintf(&ctx->out[ctx->span_cursor],                                  \
-                 TRACE_MAX_OUT - ctx->span_cursor, __VA_ARGS__);               \
+    ctx->span_cursor += snprintf(                                              \
+        &ctx->out[ctx->span_cursor],                                           \
+        (unsigned long long)TRACE_MAX_OUT - ctx->span_cursor, __VA_ARGS__);    \
   } while (0)
 
 #define trace_indent(indent, ...)                                              \
@@ -52,7 +57,8 @@ extern uint64_t timespec_ms(struct timespec ts);
     }                                                                          \
     trace_printf(__VA_ARGS__);                                                 \
     trace_printf(" \e[1;36m[span_id=%lld]\e[0m",                               \
-                 get_trace_ctx()->span_ids[get_trace_ctx()->active_span]);     \
+                 (unsigned long long)get_trace_ctx()                           \
+                     ->span_ids[get_trace_ctx()->active_span]);                \
     trace_printf("\n");                                                        \
   } while (0)
 

@@ -2,6 +2,7 @@
 
 #include "set.h"
 #include "setdebug.h"
+#include <math.h>
 
 void debug_clear_canvas(char *canvas, size_t canvas_width,
                         size_t canvas_height) {
@@ -111,7 +112,7 @@ size_t debug_draw_tree_node(tree_node_t *nodes, uint8_t *colors,
   int data_len;
   if (is_inited) {
     char data_out[8];
-    data_len = snprintf(data_out, 8, "%llu", node.hash);
+    data_len = snprintf(data_out, 8, "%llu", (unsigned long long)node.hash);
     bool overflows = data_len > 8;
     data_len = overflows ? 8 : data_len;
 
@@ -201,7 +202,8 @@ size_t debug_node_blackheight(tree_node_t *nodes, uint8_t *colors,
       fprintf(stderr,
               "Warning: Different blackheight discovered for children of node "
               "%d (%lld) - left %zu, right %zu\n",
-              node_idx, node.hash, left_blackheight, right_blackheight);
+              node_idx, (unsigned long long)node.hash, left_blackheight,
+              right_blackheight);
     }
     if (assert_uniform_height) {
       assert(left_blackheight == right_blackheight);

@@ -19,10 +19,12 @@
         ];
 
         packages = [
+          clang
           clang-tools
           llvm_17
           lldb_17
           bear
+          ruby
         ];
       };
     };

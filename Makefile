@@ -1,7 +1,7 @@
 UNITY_ROOT		:= ./Unity
 CC		 				:= clang
 DEPS 					:= set.h
-CFLAGS 				:= -O0 -g -I. -I$(UNITY_ROOT)/src -I$(UNITY_ROOT)/extras/fixture/src -Wall -fmacro-backtrace-limit=0
+CFLAGS 				:= -O1 -g -I. -I$(UNITY_ROOT)/src -I$(UNITY_ROOT)/extras/fixture/src -lm -Wall -Wno-unused-result -fmacro-backtrace-limit=0
 
 .PHONY: test clean all build_test
 .PRECIOUS: test_runners/%.c

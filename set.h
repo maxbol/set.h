@@ -42,8 +42,7 @@
       .right = IDX_NIL,                                                        \
   };
 
-#define COLLISION_NIL                                                          \
-  { .next = 0, .prev = 0 }
+#define COLLISION_NIL {.next = 0, .prev = 0}
 
 #define TREE_SIZE_LIMIT 4294967295
 
